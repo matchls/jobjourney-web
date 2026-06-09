@@ -1,16 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { apiClient } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
+  const queryClient = useQueryClient();
   const router = useRouter();
 
   const {
@@ -21,7 +22,8 @@ export default function RegisterPage() {
     mutationFn: (data: { email: string; password: string; name?: string }) =>
       apiClient.post("/auth/register", data),
     onSuccess: () => {
-      router.push("/login");
+      queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
+      router.push("/dashboard");
     },
   });
 

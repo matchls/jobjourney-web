@@ -11,8 +11,20 @@ async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
   });
 
   if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: res.statusText }));
-    throw new Error(error.message ?? "Erreur API");
+    const body = await res.json().catch(() => null);
+
+    let message = "Erreur API";
+    if (body?.message) {
+      message = body.message;
+    } else if (body?.error?.fieldErrors) {
+      const fieldErrors = body.error.fieldErrors as Record<string, string[]>;
+      const first = Object.entries(fieldErrors)[0];
+      if (first) message = `${first[0]} : ${first[1][0]}`;
+    } else if (typeof body?.error === "string") {
+      message = body.error;
+    }
+
+    throw new Error(message);
   }
 
   return res.json();

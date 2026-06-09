@@ -17,10 +17,15 @@
 - `src/app/(auth)/login/page.tsx` — page de connexion
 - `src/app/(auth)/register/page.tsx` — page d'inscription
 - `src/middleware.ts` — protection des routes (redirect si non connecté)
+- `src/components/app-sidebar.tsx` — sidebar avec navigation et logout
+- `src/app/(app)/layout.tsx` — layout protégé (sidebar + contenu)
+- `src/app/(app)/dashboard/page.tsx` — page dashboard (placeholder)
+- Correction gestion d'erreur API (format Zod fieldErrors)
+- Correction register → redirect dashboard (backend auto-login)
 
 ## 🔄 En cours
 
-- Layout protégé + sidebar
+- Pages de l'app (dashboard, kanban, candidatures...)
 
 ## ⏭️ Prochaine étape
 
