@@ -22,20 +22,16 @@
 - `src/app/(app)/dashboard/page.tsx` — page dashboard (placeholder)
 - Correction gestion d'erreur API (format Zod fieldErrors)
 - Correction register → redirect dashboard (backend auto-login)
-
-## 🔄 En cours
-
-- Pages de l'app (dashboard, kanban, candidatures...)
+- `src/hooks/use-applications.ts` — hook TanStack Query (GET /applications)
+- `src/components/kanban/application-card.tsx` — carte candidature
+- `src/components/kanban/kanban-column.tsx` — colonne kanban
+- `src/app/(app)/kanban/page.tsx` — page kanban avec les 5 colonnes
 
 ## ⏭️ Prochaine étape
 
-7. `src/app/(app)/layout.tsx` — layout protégé avec sidebar
-8. `src/app/(app)/dashboard/page.tsx`
-9. `src/app/(app)/kanban/page.tsx`
-10. `src/app/(app)/applications/page.tsx`
-11. `src/app/(app)/applications/[id]/page.tsx` — détail candidature
-12. `src/app/(app)/progression/page.tsx`
-13. `src/app/(app)/settings/page.tsx`
+1. `src/app/(app)/applications/[id]/page.tsx` — détail candidature
+2. `src/app/(app)/progression/page.tsx`
+3. `src/app/(app)/settings/page.tsx`
 
 ## Décisions importantes
 
