@@ -26,6 +26,9 @@
 - `src/components/kanban/application-card.tsx` — carte candidature
 - `src/components/kanban/kanban-column.tsx` — colonne kanban
 - `src/app/(app)/kanban/page.tsx` — page kanban avec les 5 colonnes
+- `src/hooks/use-create-application.ts` — mutation POST /applications
+- `src/components/applications/new-application-dialog.tsx` — formulaire de création
+- `src/app/(app)/applications/page.tsx` — liste des candidatures
 
 ## ⏭️ Prochaine étape
 
