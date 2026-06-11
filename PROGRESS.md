@@ -38,12 +38,20 @@
 - `src/app/(app)/progression/page.tsx` — stats candidatures par statut
 - `src/hooks/use-update-profile.ts` — mutation PATCH /users/me
 - `src/app/(app)/settings/page.tsx` — page paramètres (mise à jour profil)
+- `src/types/index.ts` — type DashboardData ajouté
+- `src/hooks/use-dashboard.ts` — hook TanStack Query pour GET /dashboard
+- `src/app/(app)/dashboard/page.tsx` — dashboard avec vraies données
+- `src/app/page.tsx` — redirect vers /dashboard
+
+## 🔄 En cours
+
+- Design pass
 
 ## ⏭️ Prochaine étape
 
-1. Dashboard — vraies données (stats + prochains entretiens)
-2. Kanban — bouton "+" par colonne pour créer directement
-3. Page détail — formulaire d'ajout d'étapes et de tâches
+1. Design pass — thème, couleurs, polish des pages
+2. Kanban — bouton "+" par colonne
+3. Détail candidature — formulaires d'ajout étapes et tâches
 4. V2 — endpoint /progression backend (compétences, questions récurrentes)
 
 ## Décisions importantes

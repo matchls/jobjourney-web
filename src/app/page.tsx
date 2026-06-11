@@ -1,7 +1,5 @@
+import { redirect } from "next/navigation";
+
 export default function Home() {
-  return (
-    <div className="flex h-screen items-center justify-center">
-      <h1 className="text-2xl font-semibold">Job Journey</h1>
-    </div>
-  );
+  redirect("/dashboard");
 }

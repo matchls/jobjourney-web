@@ -74,3 +74,25 @@ export type Application = {
   interviewSteps: InterviewStep[];
   preparationTasks: PreparationTask[];
 };
+export type DashboardData = {
+  stats: {
+    total: number;
+    byStatus: {
+      TARGETED: number;
+      APPLIED: number;
+      INTERVIEWING: number;
+      OFFER: number;
+      REJECTED: number;
+    };
+  };
+  upcomingInterviews: {
+    id: string;
+    title: string;
+    scheduledAt: string;
+    application: {
+      id: string;
+      company: string;
+      position: string;
+    };
+  }[];
+};
