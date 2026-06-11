@@ -35,12 +35,16 @@
 - `src/components/application/interview-steps.tsx` — section étapes d'entretien
 - `src/components/application/preparation-tasks.tsx` — section tâches de préparation
 - `src/app/(app)/applications/[id]/page.tsx` — page détail candidature
+- `src/app/(app)/progression/page.tsx` — stats candidatures par statut
+- `src/hooks/use-update-profile.ts` — mutation PATCH /users/me
+- `src/app/(app)/settings/page.tsx` — page paramètres (mise à jour profil)
 
 ## ⏭️ Prochaine étape
 
-1. `src/app/(app)/progression/page.tsx`
-2. `src/app/(app)/settings/page.tsx`
-3. Dashboard — enrichir avec vraies données
+1. Dashboard — vraies données (stats + prochains entretiens)
+2. Kanban — bouton "+" par colonne pour créer directement
+3. Page détail — formulaire d'ajout d'étapes et de tâches
+4. V2 — endpoint /progression backend (compétences, questions récurrentes)
 
 ## Décisions importantes
 
