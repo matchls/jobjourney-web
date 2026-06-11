@@ -29,12 +29,18 @@
 - `src/hooks/use-create-application.ts` — mutation POST /applications
 - `src/components/applications/new-application-dialog.tsx` — formulaire de création
 - `src/app/(app)/applications/page.tsx` — liste des candidatures
+- `src/hooks/use-application.ts` — fetch une candidature par id
+- `src/hooks/use-update-interview-step.ts` — mutation PATCH statut étape
+- `src/hooks/use-update-preparation-task.ts` — mutation PATCH tâche complétée
+- `src/components/application/interview-steps.tsx` — section étapes d'entretien
+- `src/components/application/preparation-tasks.tsx` — section tâches de préparation
+- `src/app/(app)/applications/[id]/page.tsx` — page détail candidature
 
 ## ⏭️ Prochaine étape
 
-1. `src/app/(app)/applications/[id]/page.tsx` — détail candidature
-2. `src/app/(app)/progression/page.tsx`
-3. `src/app/(app)/settings/page.tsx`
+1. `src/app/(app)/progression/page.tsx`
+2. `src/app/(app)/settings/page.tsx`
+3. Dashboard — enrichir avec vraies données
 
 ## Décisions importantes
 
