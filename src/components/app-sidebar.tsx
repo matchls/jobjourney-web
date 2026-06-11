@@ -4,36 +4,54 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
-  Kanban,
+  Columns2,
   Briefcase,
   TrendingUp,
   Settings,
   LogOut,
+  HelpCircle,
+  Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
-import { Button } from "@/components/ui/button";
+import Image from "next/image";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/kanban", label: "Kanban", icon: Kanban },
+  { href: "/kanban", label: "Kanban", icon: Columns2 },
   { href: "/applications", label: "Candidatures", icon: Briefcase },
   { href: "/progression", label: "Progression", icon: TrendingUp },
-  { href: "/settings", label: "Paramètres", icon: Settings },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
+
 export function AppSidebar() {
   const pathname = usePathname();
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
 
   return (
-    <aside className="w-60 border-r border-border flex flex-col h-screen sticky top-0">
+    <aside className="w-64 bg-sidebar text-sidebar-foreground flex flex-col h-screen sticky top-0">
       {/* Logo */}
-      <div className="px-4 py-5 border-b border-border">
-        <span className="font-bold text-base tracking-tight">Job Journey</span>
+      <div className="py-5 px-5 flex items-center gap-3">
+        <Image
+          src="/icon.png"
+          alt="Job Journey"
+          width={70}
+          height={70}
+          className="rounded-sm"
+          unoptimized
+        />
+        <div>
+          <p className="font-bold text-lg leading-none text-primary">
+            Job Journey
+          </p>
+          <p className="text-xs text-sidebar-foreground/60 leading-none mt-1">
+            Career Tracker
+          </p>
+        </div>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-2 py-4 space-y-1">
+      <nav className="flex-1 px-2 py-1 space-y-0.5">
         {navItems.map(({ href, label, icon: Icon }) => {
           const isActive = pathname === href;
           return (
@@ -43,8 +61,8 @@ export function AppSidebar() {
               className={cn(
                 "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
                 isActive
-                  ? "bg-primary text-primary-foreground font-medium"
-                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                  ? "bg-sidebar-primary text-sidebar-primary-foreground font-medium"
+                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
               )}
             >
               <Icon size={16} />
@@ -54,22 +72,30 @@ export function AppSidebar() {
         })}
       </nav>
 
-      {/* Utilisateur + déconnexion */}
-      <div className="px-4 py-4 border-t border-border space-y-2">
-        {user && (
-          <p className="text-sm font-medium truncate">
-            {user.name ?? user.email}
-          </p>
-        )}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="w-full justify-start text-muted-foreground"
-          onClick={logout}
+      {/* CTA */}
+      <div className="px-3 pb-3">
+        <Link
+          href="/applications/new"
+          className="flex items-center justify-center gap-2 w-full py-2.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
         >
-          <LogOut size={16} className="mr-2" />
-          Se déconnecter
-        </Button>
+          <Plus size={16} />
+          New Application
+        </Link>
+      </div>
+
+      {/* Pied */}
+      <div className="px-2 pb-4 space-y-0.5 border-t border-sidebar-border pt-3">
+        <button className="flex items-center gap-3 px-3 py-2 rounded-md text-sm text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground w-full transition-colors">
+          <HelpCircle size={16} />
+          Help Center
+        </button>
+        <button
+          onClick={logout}
+          className="flex items-center gap-3 px-3 py-2 rounded-md text-sm text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground w-full transition-colors"
+        >
+          <LogOut size={16} />
+          Log Out
+        </button>
       </div>
     </aside>
   );
