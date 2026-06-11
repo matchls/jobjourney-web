@@ -27,7 +27,6 @@ export default function KanbanPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-bold tracking-tight">Kanban</h1>
       <div className="flex gap-4 overflow-x-auto pb-4">
         {COLUMNS.map(({ status, label }) => (
           <KanbanColumn
