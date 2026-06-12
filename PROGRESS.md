@@ -50,6 +50,11 @@
   - `src/components/application/interview-steps.tsx` — timeline entretiens
   - `src/components/application/preparation-tasks.tsx` — tâches + jauge SVG
   - `src/app/(app)/progression/page.tsx` — coach d'apprentissage (statique V1)
+  - `src/app/(app)/settings/page.tsx` — profil, préférences, sécurité, actions
+  - `src/app/(app)/applications/page.tsx` — liste candidatures avec recherche, étapes, préparation
+  - `src/app/(app)/applications/[id]/page.tsx` — détail enrichi avec Zoom, vigilance, ressources
+  - `src/components/application/interview-steps.tsx` — questions actives, boutons Zoom/date
+  - `src/types/index.ts` — champ `notes` ajouté au type Application
 - `src/hooks/use-update-profile.ts` — mutation PATCH /users/me
 - `src/app/(app)/settings/page.tsx` — page paramètres (mise à jour profil)
 - `src/types/index.ts` — type DashboardData ajouté
@@ -59,11 +64,11 @@
 
 ## 🔄 En cours
 
-- Design pass — page Candidatures (liste) à faire
+- (rien — design pass terminé)
 
 ## ⏭️ Prochaine étape
 
-1. Design pass — page `/applications` (liste des candidatures)
+1. ~~Design pass~~ ✅ terminé
 2. Kanban — bouton "+" par colonne (fonctionnel)
 3. Détail candidature — formulaires d'ajout étapes et tâches
 4. V2 — endpoint /progression backend (compétences, questions récurrentes)

@@ -66,6 +66,7 @@ export type Application = {
   offerUrl: string | null;
   status: ApplicationStatus;
   appliedAt: string | null;
+  notes: string | null;
   resumeText: string | null;
   coverLetterText: string | null;
   userId: string;
