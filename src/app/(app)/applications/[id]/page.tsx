@@ -2,7 +2,13 @@
 
 import { use } from "react";
 import Link from "next/link";
-import { ChevronRight, Pencil } from "lucide-react";
+import {
+  ChevronRight,
+  Pencil,
+  Share2,
+  AlertTriangle,
+  BookOpen,
+} from "lucide-react";
 import { useApplication } from "@/hooks/use-application";
 import { InterviewSteps } from "@/components/application/interview-steps";
 import { PreparationTasks } from "@/components/application/preparation-tasks";
@@ -86,13 +92,19 @@ export default function ApplicationDetailPage({
             </div>
           </div>
         </div>
-        <Link
-          href={`/applications/${id}/edit`}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors shrink-0"
-        >
-          <Pencil size={14} />
-          Modifier
-        </Link>
+        <div className="flex items-center gap-2">
+          <button className="flex items-center gap-2 px-4 py-2 border border-border rounded-lg text-sm font-medium hover:bg-muted transition-colors">
+            <Share2 size={14} />
+            Partager
+          </button>
+          <Link
+            href={`/applications/${id}/edit`}
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+          >
+            <Pencil size={14} />
+            Modifier
+          </Link>
+        </div>
       </div>
 
       {/* Interview Journey */}
@@ -115,6 +127,50 @@ export default function ApplicationDetailPage({
           tasks={application.preparationTasks}
           applicationId={application.id}
         />
+        <div className="grid grid-cols-2 gap-4 mt-4">
+          <div className="bg-red-50/60 border border-red-100 rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <AlertTriangle size={13} className="text-red-500" />
+              <p className="text-[10px] font-bold uppercase tracking-wider text-red-500">
+                Points de vigilance
+              </p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <p className="text-xs text-red-700">
+                {"• Vérifiez les délais de réponse attendus."}
+              </p>
+              <p className="text-xs text-red-700">
+                {"• Confirmez les détails logistiques avant l'entretien."}
+              </p>
+            </div>
+          </div>
+          <div className="bg-card border border-border rounded-xl p-4">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-3">
+              Ressources
+            </p>
+            <div className="flex flex-col gap-2">
+              {[
+                { title: "Culture entreprise", sub: "Guide d'entretien" },
+                { title: "Questions techniques", sub: "Fiche de révision" },
+              ].map(({ title, sub }) => (
+                <div
+                  key={title}
+                  className="flex items-center gap-3 p-2.5 bg-muted/40 rounded-lg"
+                >
+                  <div className="w-8 h-8 bg-secondary rounded-lg flex items-center justify-center shrink-0">
+                    <BookOpen size={13} className="text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-foreground">
+                      {title}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">{sub}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </section>
     </div>
   );

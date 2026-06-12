@@ -1,4 +1,4 @@
-import { CheckCircle2, XCircle, Lock } from "lucide-react";
+import { CheckCircle2, XCircle, Lock, Video, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUpdateInterviewStep } from "@/hooks/use-update-interview-step";
 import type { InterviewStep } from "@/types";
@@ -64,6 +64,7 @@ export function InterviewSteps({ steps, applicationId }: Props) {
                 )}
               </div>
 
+              {/* Contenu */}
               <div className="flex-1 min-w-0">
                 {/* Titre + badge + date */}
                 <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -111,7 +112,43 @@ export function InterviewSteps({ steps, applicationId }: Props) {
                   </p>
                 )}
 
-                {/* Questions + À réviser (étapes terminées) */}
+                {/* Questions à poser + Focus révision — étape active */}
+                {isActive && (step.questionsAsked || step.toReview) && (
+                  <div className="grid grid-cols-2 gap-3 mt-3 p-3 bg-background rounded-lg border border-border">
+                    {step.questionsAsked && (
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
+                          Questions à poser
+                        </p>
+                        {step.questionsAsked
+                          .split("\n")
+                          .filter(Boolean)
+                          .map((q, i) => (
+                            <p key={i} className="text-xs text-foreground">
+                              — {q}
+                            </p>
+                          ))}
+                      </div>
+                    )}
+                    {step.toReview && (
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
+                          Focus révision
+                        </p>
+                        {step.toReview
+                          .split("\n")
+                          .filter(Boolean)
+                          .map((r, i) => (
+                            <p key={i} className="text-xs text-foreground">
+                              — {r}
+                            </p>
+                          ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Questions posées + À réviser — étapes terminées */}
                 {isCompleted && (step.questionsAsked || step.toReview) && (
                   <div className="grid grid-cols-2 gap-4 mt-3 pt-3 border-t border-border">
                     {step.questionsAsked && (
@@ -137,7 +174,7 @@ export function InterviewSteps({ steps, applicationId }: Props) {
                   </div>
                 )}
 
-                {/* Bouton toggle */}
+                {/* Toggle */}
                 {!isFuture && !isCancelled && (
                   <button
                     disabled={isPending}
@@ -159,6 +196,20 @@ export function InterviewSteps({ steps, applicationId }: Props) {
                   </button>
                 )}
               </div>
+
+              {/* Boutons Zoom / Date — étape active uniquement */}
+              {isActive && (
+                <div className="flex flex-col gap-2 shrink-0">
+                  <button className="flex items-center gap-2 text-xs font-semibold bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors whitespace-nowrap">
+                    <Video size={13} />
+                    Démarrer Zoom
+                  </button>
+                  <button className="flex items-center gap-2 text-xs font-medium border border-border px-4 py-2 rounded-lg hover:bg-muted transition-colors whitespace-nowrap">
+                    <Calendar size={13} />
+                    Modifier date
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         );

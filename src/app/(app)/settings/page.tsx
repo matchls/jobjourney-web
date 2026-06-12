@@ -194,7 +194,7 @@ export default function SettingsPage() {
               <span
                 className={cn(
                   "absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all",
-                  notifEnabled ? "left-[18px]" : "left-0.5",
+                  notifEnabled ? "left-4.5" : "left-0.5",
                 )}
               />
             </button>
