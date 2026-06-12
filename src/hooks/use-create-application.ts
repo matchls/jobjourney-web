@@ -1,12 +1,13 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api";
-import type { Application } from "@/types";
+import type { Application, ApplicationStatus } from "@/types";
 
 export type CreateApplicationInput = {
   company: string;
   position: string;
   source?: string;
   offerUrl?: string;
+  status?: ApplicationStatus;
 };
 
 export function useCreateApplication() {

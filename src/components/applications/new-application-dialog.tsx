@@ -12,17 +12,25 @@ import {
 import { useCreateApplication } from "@/hooks/use-create-application";
 import type { CreateApplicationInput } from "@/hooks/use-create-application";
 import { Plus } from "lucide-react";
+import { ApplicationStatus } from "@/types";
 
 const inputClass =
   "w-full px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring";
 
-export function NewApplicationDialog() {
+export function NewApplicationDialog({
+  defaultStatus,
+  trigger,
+}: {
+  defaultStatus?: ApplicationStatus;
+  trigger?: React.ReactNode;
+}) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<CreateApplicationInput>({
     company: "",
     position: "",
     source: "",
     offerUrl: "",
+    status: defaultStatus ?? "TARGETED",
   });
 
   const { mutate, isPending } = useCreateApplication();
@@ -35,18 +43,35 @@ export function NewApplicationDialog() {
         position: form.position,
         source: form.source || undefined,
         offerUrl: form.offerUrl || undefined,
+        status: form.status,
       },
       { onSuccess: () => setOpen(false) },
     );
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(isOpen) => {
+        setOpen(isOpen);
+        if (!isOpen) {
+          setForm({
+            company: "",
+            position: "",
+            source: "",
+            offerUrl: "",
+            status: defaultStatus ?? "TARGETED",
+          });
+        }
+      }}
+    >
       <DialogTrigger asChild>
-        <Button size="sm">
-          <Plus size={16} className="mr-2" />
-          Nouvelle candidature
-        </Button>
+        {trigger ?? (
+          <Button size="sm">
+            <Plus size={16} className="mr-2" />
+            Nouvelle candidature
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>

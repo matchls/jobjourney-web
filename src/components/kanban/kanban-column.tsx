@@ -1,13 +1,15 @@
 import { Plus } from "lucide-react";
 import { ApplicationCard } from "./application-card";
-import type { Application } from "@/types";
+import type { Application, ApplicationStatus } from "@/types";
+import { NewApplicationDialog } from "@/components/applications/new-application-dialog";
 
 type Props = {
   title: string;
+  status: ApplicationStatus;
   applications: Application[];
 };
 
-export function KanbanColumn({ title, applications }: Props) {
+export function KanbanColumn({ title, status, applications }: Props) {
   return (
     <div className="flex flex-col gap-3 min-w-65 w-65">
       <div className="flex items-center justify-between px-1">
@@ -19,9 +21,14 @@ export function KanbanColumn({ title, applications }: Props) {
             {applications.length}
           </span>
         </div>
-        <button className="text-muted-foreground hover:text-foreground transition-colors p-0.5 rounded hover:bg-accent">
-          <Plus size={14} />
-        </button>
+        <NewApplicationDialog
+          defaultStatus={status}
+          trigger={
+            <button className="text-muted-foreground hover:text-foreground transition-colors p-0.5 rounded hover:bg-accent">
+              <Plus size={14} />
+            </button>
+          }
+        />
       </div>
       <div className="flex flex-col gap-2">
         {applications.length === 0 ? (

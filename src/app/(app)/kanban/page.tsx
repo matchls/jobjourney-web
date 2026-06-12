@@ -32,6 +32,7 @@ export default function KanbanPage() {
           <KanbanColumn
             key={status}
             title={label}
+            status={status}
             applications={byStatus(status)}
           />
         ))}
