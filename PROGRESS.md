@@ -36,6 +36,20 @@
 - `src/components/application/preparation-tasks.tsx` — section tâches de préparation
 - `src/app/(app)/applications/[id]/page.tsx` — page détail candidature
 - `src/app/(app)/progression/page.tsx` — stats candidatures par statut
+- **Design pass — thème & UI**
+  - `src/app/globals.css` — palette Material You (hex), police Inter, dark mode override
+  - `src/app/layout.tsx` — Inter font, favicon logo3, classe `light`
+  - `src/app/icon.png` — favicon auto-détecté par Next.js
+  - `src/components/app-sidebar.tsx` — sidebar redesignée (logo, nav active, CTA)
+  - `src/components/app-header.tsx` — header avec recherche, icônes, avatar
+  - `src/app/(app)/layout.tsx` — layout sidebar + header
+  - `src/app/(app)/dashboard/page.tsx` — dashboard avec stats, entretiens, bento grid
+  - `src/components/kanban/kanban-column.tsx` — colonnes redesignées
+  - `src/components/kanban/application-card.tsx` — cartes avec badges étapes
+  - `src/app/(app)/applications/[id]/page.tsx` — page détail avec breadcrumb, statuts
+  - `src/components/application/interview-steps.tsx` — timeline entretiens
+  - `src/components/application/preparation-tasks.tsx` — tâches + jauge SVG
+  - `src/app/(app)/progression/page.tsx` — coach d'apprentissage (statique V1)
 - `src/hooks/use-update-profile.ts` — mutation PATCH /users/me
 - `src/app/(app)/settings/page.tsx` — page paramètres (mise à jour profil)
 - `src/types/index.ts` — type DashboardData ajouté
@@ -45,12 +59,12 @@
 
 ## 🔄 En cours
 
-- Design pass
+- Design pass — page Candidatures (liste) à faire
 
 ## ⏭️ Prochaine étape
 
-1. Design pass — thème, couleurs, polish des pages
-2. Kanban — bouton "+" par colonne
+1. Design pass — page `/applications` (liste des candidatures)
+2. Kanban — bouton "+" par colonne (fonctionnel)
 3. Détail candidature — formulaires d'ajout étapes et tâches
 4. V2 — endpoint /progression backend (compétences, questions récurrentes)
 
