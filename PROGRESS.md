@@ -5,78 +5,84 @@
 - Initialisation Next.js (App Router, TypeScript, Tailwind v4, Turbopack, src/)
 - Connexion repo GitHub (origin/main)
 - CLAUDE.md + règles de collaboration
-- Nettoyage boilerplate (page.tsx, layout.tsx, public/)
-- Setup shadcn/ui (Radix + Nova preset, Tailwind v4)
-- TanStack Query installé
-- `src/lib/api.ts` — client HTTP (fetch + credentials + gestion d'erreur)
-- `src/types/index.ts` — types TypeScript (User, Application, InterviewStep, PreparationTask, Skill)
-- `src/components/providers.tsx` — QueryClientProvider (TanStack Query)
-- `layout.tsx` mis à jour avec `<Providers>`
-- `src/app/(auth)/layout.tsx` — layout centré pour les pages auth
-- `src/lib/auth.ts` — hook useAuth (TanStack Query + /auth/me)
-- `src/app/(auth)/login/page.tsx` — page de connexion
-- `src/app/(auth)/register/page.tsx` — page d'inscription
-- `src/middleware.ts` — protection des routes (redirect si non connecté)
-- `src/components/app-sidebar.tsx` — sidebar avec navigation et logout
-- `src/app/(app)/layout.tsx` — layout protégé (sidebar + contenu)
-- `src/app/(app)/dashboard/page.tsx` — page dashboard (placeholder)
-- Correction gestion d'erreur API (format Zod fieldErrors)
-- Correction register → redirect dashboard (backend auto-login)
-- `src/hooks/use-applications.ts` — hook TanStack Query (GET /applications)
-- `src/components/kanban/application-card.tsx` — carte candidature
-- `src/components/kanban/kanban-column.tsx` — colonne kanban
-- `src/app/(app)/kanban/page.tsx` — page kanban avec les 5 colonnes
-- `src/hooks/use-create-application.ts` — mutation POST /applications
-- `src/components/applications/new-application-dialog.tsx` — formulaire de création
-- `src/app/(app)/applications/page.tsx` — liste des candidatures
-- `src/hooks/use-application.ts` — fetch une candidature par id
-- `src/hooks/use-update-interview-step.ts` — mutation PATCH statut étape
-- `src/hooks/use-update-preparation-task.ts` — mutation PATCH tâche complétée
-- `src/components/application/interview-steps.tsx` — section étapes d'entretien
-- `src/components/application/preparation-tasks.tsx` — section tâches de préparation
-- `src/app/(app)/applications/[id]/page.tsx` — page détail candidature
-- `src/app/(app)/progression/page.tsx` — stats candidatures par statut
-- **Design pass — thème & UI**
-  - `src/app/globals.css` — palette Material You (hex), police Inter, dark mode override
-  - `src/app/layout.tsx` — Inter font, favicon logo3, classe `light`
-  - `src/app/icon.png` — favicon auto-détecté par Next.js
-  - `src/components/app-sidebar.tsx` — sidebar redesignée (logo, nav active, CTA)
-  - `src/components/app-header.tsx` — header avec recherche, icônes, avatar
-  - `src/app/(app)/layout.tsx` — layout sidebar + header
-  - `src/app/(app)/dashboard/page.tsx` — dashboard avec stats, entretiens, bento grid
-  - `src/components/kanban/kanban-column.tsx` — colonnes redesignées
-  - `src/components/kanban/application-card.tsx` — cartes avec badges étapes
-  - `src/app/(app)/applications/[id]/page.tsx` — page détail avec breadcrumb, statuts
-  - `src/components/application/interview-steps.tsx` — timeline entretiens
-  - `src/components/application/preparation-tasks.tsx` — tâches + jauge SVG
-  - `src/app/(app)/progression/page.tsx` — coach d'apprentissage (statique V1)
-  - `src/app/(app)/settings/page.tsx` — profil, préférences, sécurité, actions
-  - `src/app/(app)/applications/page.tsx` — liste candidatures avec recherche, étapes, préparation
-  - `src/app/(app)/applications/[id]/page.tsx` — détail enrichi avec Zoom, vigilance, ressources
-  - `src/components/application/interview-steps.tsx` — questions actives, boutons Zoom/date
-  - `src/types/index.ts` — champ `notes` ajouté au type Application
-- `src/hooks/use-update-profile.ts` — mutation PATCH /users/me
-- `src/app/(app)/settings/page.tsx` — page paramètres (mise à jour profil)
-- `src/types/index.ts` — type DashboardData ajouté
-- `src/hooks/use-dashboard.ts` — hook TanStack Query pour GET /dashboard
-- `src/app/(app)/dashboard/page.tsx` — dashboard avec vraies données
-- `src/app/page.tsx` — redirect vers /dashboard
+- Setup shadcn/ui, TanStack Query, client HTTP, types TypeScript
+- Auth : login, register, middleware de protection des routes
+- `src/hooks/use-applications.ts` — GET /applications
+- `src/hooks/use-create-application.ts` — POST /applications
+- `src/hooks/use-application.ts` — GET /applications/:id
+- `src/hooks/use-update-interview-step.ts` — PATCH statut étape
+- `src/hooks/use-update-preparation-task.ts` — PATCH tâche complétée
+- `src/hooks/use-update-profile.ts` — PATCH /users/me
+- `src/hooks/use-dashboard.ts` — GET /dashboard
+- Pages : Dashboard, Kanban, Candidatures (liste + détail), Progression, Settings
+- Composants : sidebar, header, kanban columns/cards, interview-steps, preparation-tasks
+- **Design pass complet** — palette Material You, Inter, favicon, toutes les pages redesignées
 
 ## 🔄 En cours
 
-- (rien — design pass terminé)
+- (rien)
 
-## ⏭️ Prochaine étape
+## ⏭️ Plan V1 — Fonctionnalités manquantes
 
-1. ~~Design pass~~ ✅ terminé
-2. Kanban — bouton "+" par colonne (fonctionnel)
-3. Détail candidature — formulaires d'ajout étapes et tâches
-4. V2 — endpoint /progression backend (compétences, questions récurrentes)
+### 1. Bouton "+" Kanban (30 min)
+- Passer `defaultStatus` prop au composant `NewApplicationDialog`
+- Le dialog pré-sélectionne le statut de la colonne à l'ouverture
+- Fichiers : `new-application-dialog.tsx`, `kanban-column.tsx`
+
+### 2. Modifier une candidature (~2h)
+- **Vérifier d'abord** que l'endpoint `PATCH /applications/:id` existe côté backend
+- `src/hooks/use-update-application.ts` — mutation PATCH
+- `src/app/(app)/applications/[id]/edit/page.tsx` — formulaire pré-rempli
+  - Champs : company, position, source, status, notes, appliedAt
+  - Même structure que le formulaire de création
+- Fichiers : nouveau hook + nouvelle page
+
+### 3. Ajouter / supprimer une étape d'entretien (~3h)
+- **Vérifier d'abord** que les endpoints `POST /applications/:id/steps` et `DELETE /steps/:id` existent
+- `src/hooks/use-create-interview-step.ts` — mutation POST
+- `src/hooks/use-delete-interview-step.ts` — mutation DELETE
+- Bouton "Ajouter une étape" dans `interview-steps.tsx` → ouvre un modal
+  - Champs : title, type (HR/TECHNICAL/FINAL/CUSTOM), scheduledAt
+- Bouton supprimer sur chaque étape (icône poubelle)
+- Fichiers : 2 nouveaux hooks + modification `interview-steps.tsx`
+
+### 4. Ajouter / supprimer une tâche de préparation (~2h)
+- **Vérifier d'abord** que les endpoints `POST /applications/:id/tasks` et `DELETE /tasks/:id` existent
+- `src/hooks/use-create-preparation-task.ts` — mutation POST
+- `src/hooks/use-delete-preparation-task.ts` — mutation DELETE
+- Formulaire inline sous la checklist : champ texte + bouton ajouter
+- Bouton supprimer sur chaque tâche
+- Fichiers : 2 nouveaux hooks + modification `preparation-tasks.tsx`
+
+### 5. Supprimer une candidature (~1h)
+- **Vérifier d'abord** que l'endpoint `DELETE /applications/:id` existe
+- `src/hooks/use-delete-application.ts` — mutation DELETE
+- Bouton "Supprimer" dans la page détail (avec confirmation)
+- Après suppression : redirect vers `/applications`
+- Fichiers : nouveau hook + modification `[id]/page.tsx`
+
+---
+
+**Total estimé : ~8-9h guidées**
+**Ordre recommandé : 1 → 2 → 3 → 4 → 5**
+**Pré-requis : vérifier les endpoints backend avant chaque feature**
+
+## 🔮 V2 (après V1 complet)
+
+- Endpoint `/progression` backend (compétences, questions récurrentes, historique)
+- Filtres actifs sur la page Candidatures (statut, source)
+- Bouton "Partager" fonctionnel
+- Bouton "Démarrer Zoom" fonctionnel
+- Google OAuth
+- Tags de compétences dans Settings
+- Processus d'entretien par défaut dans Settings
 
 ## Décisions importantes
 
 - Tailwind v4 (pas de tailwind.config.js, tout en CSS)
-- shadcn/ui Radix + preset Nova (Lucide icons + Geist font)
+- shadcn/ui Radix + preset Nova (Lucide icons)
 - TanStack Query pour tous les appels API
+- Police : Inter (remplace Geist)
+- Palette : Material You tokens extraits des maquettes Stitch (hex)
+- Dark mode désactivé volontairement (override CSS)
 - Google OAuth → reporté en V1.1
-- Le frontend démarre après que le backend V1 soit complet ✅
