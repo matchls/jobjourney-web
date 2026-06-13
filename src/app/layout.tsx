@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   title: "Job Journey",
   description:
     "Track your job search, prepare your interviews, learn from every process.",
-  icons: { icon: "/logo1.png" },
+  icons: { icon: "/icon.png" },
 };
 
 export default function RootLayout({
