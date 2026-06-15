@@ -18,18 +18,16 @@
 - Composants : sidebar, header, kanban columns/cards, interview-steps, preparation-tasks
 - **Design pass complet** — palette Material You, Inter, favicon, toutes les pages redesignées
 
-## 🔄 En cours
-
-- (rien)
-
 ## ⏭️ Plan V1 — Fonctionnalités manquantes
 
 ### 1. Bouton "+" Kanban (30 min)
+
 - Passer `defaultStatus` prop au composant `NewApplicationDialog`
 - Le dialog pré-sélectionne le statut de la colonne à l'ouverture
 - Fichiers : `new-application-dialog.tsx`, `kanban-column.tsx`
 
 ### 2. Modifier une candidature (~2h)
+
 - **Vérifier d'abord** que l'endpoint `PATCH /applications/:id` existe côté backend
 - `src/hooks/use-update-application.ts` — mutation PATCH
 - `src/app/(app)/applications/[id]/edit/page.tsx` — formulaire pré-rempli
@@ -38,6 +36,7 @@
 - Fichiers : nouveau hook + nouvelle page
 
 ### 3. Ajouter / supprimer une étape d'entretien (~3h)
+
 - **Vérifier d'abord** que les endpoints `POST /applications/:id/steps` et `DELETE /steps/:id` existent
 - `src/hooks/use-create-interview-step.ts` — mutation POST
 - `src/hooks/use-delete-interview-step.ts` — mutation DELETE
@@ -47,6 +46,7 @@
 - Fichiers : 2 nouveaux hooks + modification `interview-steps.tsx`
 
 ### 4. Ajouter / supprimer une tâche de préparation (~2h)
+
 - **Vérifier d'abord** que les endpoints `POST /applications/:id/tasks` et `DELETE /tasks/:id` existent
 - `src/hooks/use-create-preparation-task.ts` — mutation POST
 - `src/hooks/use-delete-preparation-task.ts` — mutation DELETE
@@ -55,6 +55,7 @@
 - Fichiers : 2 nouveaux hooks + modification `preparation-tasks.tsx`
 
 ### 5. Supprimer une candidature (~1h)
+
 - **Vérifier d'abord** que l'endpoint `DELETE /applications/:id` existe
 - `src/hooks/use-delete-application.ts` — mutation DELETE
 - Bouton "Supprimer" dans la page détail (avec confirmation)
@@ -66,6 +67,10 @@
 **Total estimé : ~8-9h guidées**
 **Ordre recommandé : 1 → 2 → 3 → 4 → 5**
 **Pré-requis : vérifier les endpoints backend avant chaque feature**
+
+## 🔄 En cours
+
+- (rien)
 
 ## 🔮 V2 (après V1 complet)
 
