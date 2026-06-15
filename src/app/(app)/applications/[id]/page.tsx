@@ -13,6 +13,8 @@ import { useApplication } from "@/hooks/use-application";
 import { InterviewSteps } from "@/components/application/interview-steps";
 import { PreparationTasks } from "@/components/application/preparation-tasks";
 import type { ApplicationStatus } from "@/types";
+import { useRouter } from "next/navigation";
+import { useDeleteApplication } from "@/hooks/use-delete-application";
 
 const statusConfig: Record<
   ApplicationStatus,
@@ -38,6 +40,9 @@ export default function ApplicationDetailPage({
 }) {
   const { id } = use(params);
   const { data: application, isLoading } = useApplication(id);
+  const router = useRouter();
+  const { mutate: deleteApplication, isPending: isDeleting } =
+    useDeleteApplication();
 
   if (isLoading)
     return <p className="text-sm text-muted-foreground">Chargement...</p>;
@@ -96,6 +101,19 @@ export default function ApplicationDetailPage({
           <button className="flex items-center gap-2 px-4 py-2 border border-border rounded-lg text-sm font-medium hover:bg-muted transition-colors">
             <Share2 size={14} />
             Partager
+          </button>
+          <button
+            onClick={() => {
+              if (confirm("Supprimer cette candidature ?")) {
+                deleteApplication(id, {
+                  onSuccess: () => router.push("/applications"),
+                });
+              }
+            }}
+            disabled={isDeleting}
+            className="flex items-center gap-2 px-4 py-2 border border-destructive text-destructive rounded-lg text-sm font-medium hover:bg-destructive/10 transition-colors disabled:opacity-50"
+          >
+            Supprimer
           </button>
           <Link
             href={`/applications/${id}/edit`}
