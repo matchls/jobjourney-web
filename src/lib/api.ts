@@ -26,7 +26,8 @@ async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
 
     throw new Error(message);
   }
-
+  if (res.status === 204) return null as T;
+  return res.json();
   return res.json();
 }
 
