@@ -72,15 +72,24 @@
 
 - (rien)
 
-## 🔮 V2 (après V1 complet)
+## 🔮 V1.1 (après V1 déployée)
 
-- Endpoint `/progression` backend (compétences, questions récurrentes, historique)
-- Filtres actifs sur la page Candidatures (statut, source)
-- Bouton "Partager" fonctionnel
-- Bouton "Démarrer Zoom" fonctionnel
 - Google OAuth
 - Tags de compétences dans Settings
 - Processus d'entretien par défaut dans Settings
+- Score de préparation amélioré
+- Analytics enrichis
+- Filtres actifs sur la page Candidatures (statut, source)
+- Bouton "Partager" fonctionnel
+- Bouton "Démarrer Zoom" fonctionnel
+- Endpoint `/progression` backend (compétences, questions récurrentes, historique)
+
+## 🔮 V2 (vision long terme)
+
+- IA d'analyse des notes d'entretien
+- Suggestions de révision
+- Application mobile
+- Import automatique d'offres
 
 ## Décisions importantes
 
