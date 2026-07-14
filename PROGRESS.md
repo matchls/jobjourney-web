@@ -17,6 +17,12 @@
 - Pages : Dashboard, Kanban, Candidatures (liste + détail), Progression, Settings
 - Composants : sidebar, header, kanban columns/cards, interview-steps, preparation-tasks
 - **Design pass complet** — palette Material You, Inter, favicon, toutes les pages redesignées
+- Dates de candidature et historique de statut :
+  - Types : `Application.statusChangedAt`, `Application.statusHistory`, nouveau type `ApplicationStatusHistory`
+  - `src/lib/relative-time.ts` — `formatRelativeTime` (pastille "il y a X jours/semaines/mois"), `getColumnEntryDate` (fallback `statusChangedAt` → `appliedAt` → `createdAt`), `isStale` (seuils TARGETED>14j, APPLIED>21j, INTERVIEWING>30j)
+  - Carte Kanban (`application-card.tsx`) : pastille de temps dans la colonne + point ambre discret si stagnation (pas de déplacement automatique)
+  - Champ "Date de candidature" (`appliedAt`) dans le formulaire de création et le formulaire d'édition
+  - Page détail candidature : section "Historique du statut" (liste des transitions avec date en français)
 
 ## ⏭️ Plan V1 — Fonctionnalités manquantes
 
@@ -100,3 +106,4 @@
 - Palette : Material You tokens extraits des maquettes Stitch (hex)
 - Dark mode désactivé volontairement (override CSS)
 - Google OAuth → reporté en V1.1
+- Pas de librairie de dates ajoutée (date-fns, dayjs...) pour le temps relatif — fonction maison suffisante pour le besoin (jours/semaines/mois)

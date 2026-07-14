@@ -55,6 +55,7 @@ function EditForm({
     offerUrl: application.offerUrl ?? "",
     status: application.status,
     notes: application.notes ?? "",
+    appliedAt: application.appliedAt ? application.appliedAt.slice(0, 10) : "",
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -65,6 +66,9 @@ function EditForm({
         ...form,
         source: form.source || undefined,
         offerUrl: form.offerUrl || undefined,
+        appliedAt: form.appliedAt
+          ? new Date(form.appliedAt).toISOString()
+          : undefined,
       },
       { onSuccess: () => router.push(`/applications/${id}`) },
     );
@@ -147,6 +151,18 @@ function EditForm({
             type="url"
             value={form.offerUrl}
             onChange={(e) => setForm({ ...form, offerUrl: e.target.value })}
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-sm font-medium">
+            Date de candidature{" "}
+            <span className="text-muted-foreground">(optionnel)</span>
+          </label>
+          <input
+            className={inputClass}
+            type="date"
+            value={form.appliedAt}
+            onChange={(e) => setForm({ ...form, appliedAt: e.target.value })}
           />
         </div>
         <div className="space-y-1">

@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatRelativeTime, getColumnEntryDate, isStale } from "@/lib/relative-time";
 import type { Application } from "@/types";
 
 type Props = { application: Application };
@@ -14,6 +15,8 @@ function stepLabel(type: string, title: string) {
 
 export function ApplicationCard({ application }: Props) {
   const hasSteps = (application.interviewSteps?.length ?? 0) > 0;
+  const columnDate = getColumnEntryDate(application);
+  const stale = isStale(application.status, columnDate);
 
   return (
     <Link
@@ -38,6 +41,26 @@ export function ApplicationCard({ application }: Props) {
           </span>
         </div>
       )}
+
+      <div className="flex items-center gap-1.5 mt-2 text-xs">
+        <Clock
+          size={12}
+          className={stale ? "text-amber-500" : "text-muted-foreground"}
+        />
+        <span
+          className={cn(
+            stale ? "text-amber-600 font-medium" : "text-muted-foreground",
+          )}
+        >
+          {formatRelativeTime(columnDate)} dans cette colonne
+        </span>
+        {stale && (
+          <span
+            className="w-1.5 h-1.5 rounded-full bg-amber-500"
+            title="Cette candidature stagne dans cette colonne"
+          />
+        )}
+      </div>
 
       {hasSteps && (
         <div className="flex items-center gap-1.5 mt-3 flex-wrap">

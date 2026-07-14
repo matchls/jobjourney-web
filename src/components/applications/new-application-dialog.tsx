@@ -25,13 +25,15 @@ export function NewApplicationDialog({
   trigger?: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState<CreateApplicationInput>({
+  const emptyForm: CreateApplicationInput & { appliedAt: string } = {
     company: "",
     position: "",
     source: "",
     offerUrl: "",
     status: defaultStatus ?? "TARGETED",
-  });
+    appliedAt: "",
+  };
+  const [form, setForm] = useState(emptyForm);
 
   const { mutate, isPending } = useCreateApplication();
 
@@ -44,6 +46,9 @@ export function NewApplicationDialog({
         source: form.source || undefined,
         offerUrl: form.offerUrl || undefined,
         status: form.status,
+        appliedAt: form.appliedAt
+          ? new Date(form.appliedAt).toISOString()
+          : undefined,
       },
       { onSuccess: () => setOpen(false) },
     );
@@ -55,13 +60,7 @@ export function NewApplicationDialog({
       onOpenChange={(isOpen) => {
         setOpen(isOpen);
         if (!isOpen) {
-          setForm({
-            company: "",
-            position: "",
-            source: "",
-            offerUrl: "",
-            status: defaultStatus ?? "TARGETED",
-          });
+          setForm({ ...emptyForm, status: defaultStatus ?? "TARGETED" });
         }
       }}
     >
@@ -117,6 +116,18 @@ export function NewApplicationDialog({
               type="url"
               value={form.offerUrl}
               onChange={(e) => setForm({ ...form, offerUrl: e.target.value })}
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-sm font-medium">
+              Date de candidature{" "}
+              <span className="text-muted-foreground">(optionnel)</span>
+            </label>
+            <input
+              className={inputClass}
+              type="date"
+              value={form.appliedAt}
+              onChange={(e) => setForm({ ...form, appliedAt: e.target.value })}
             />
           </div>
           <Button type="submit" className="w-full" disabled={isPending}>

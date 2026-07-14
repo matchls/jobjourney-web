@@ -58,6 +58,15 @@ export type PreparationTask = {
   updatedAt: string;
 };
 
+export type ApplicationStatusHistory = {
+  id: string;
+  fromStatus: ApplicationStatus | null;
+  toStatus: ApplicationStatus;
+  changedAt: string;
+  createdAt: string;
+  applicationId: string;
+};
+
 export type Application = {
   id: string;
   company: string;
@@ -66,6 +75,7 @@ export type Application = {
   offerUrl: string | null;
   status: ApplicationStatus;
   appliedAt: string | null;
+  statusChangedAt: string | null;
   notes: string | null;
   resumeText: string | null;
   coverLetterText: string | null;
@@ -74,6 +84,7 @@ export type Application = {
   updatedAt: string;
   interviewSteps: InterviewStep[];
   preparationTasks: PreparationTask[];
+  statusHistory: ApplicationStatusHistory[];
 };
 export type DashboardData = {
   stats: {

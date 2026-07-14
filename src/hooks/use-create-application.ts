@@ -8,6 +8,7 @@ export type CreateApplicationInput = {
   source?: string;
   offerUrl?: string;
   status?: ApplicationStatus;
+  appliedAt?: string;
 };
 
 export function useCreateApplication() {

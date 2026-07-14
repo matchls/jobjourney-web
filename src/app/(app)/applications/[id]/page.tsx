@@ -190,6 +190,44 @@ export default function ApplicationDetailPage({
           </div>
         </div>
       </section>
+
+      {/* Historique du statut */}
+      <section>
+        <h2 className="text-xl font-semibold text-foreground mb-4">
+          Historique du statut
+        </h2>
+        {application.statusHistory.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Aucun changement de statut pour le moment.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {application.statusHistory.map((entry) => (
+              <div
+                key={entry.id}
+                className="flex items-center justify-between text-sm bg-card border border-border rounded-lg px-4 py-2.5"
+              >
+                <span className="text-foreground">
+                  {entry.fromStatus
+                    ? statusConfig[entry.fromStatus].label
+                    : "Création"}
+                  {" → "}
+                  <span className="font-medium">
+                    {statusConfig[entry.toStatus].label}
+                  </span>
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {new Date(entry.changedAt).toLocaleDateString("fr-FR", {
+                    day: "2-digit",
+                    month: "long",
+                    year: "numeric",
+                  })}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }
