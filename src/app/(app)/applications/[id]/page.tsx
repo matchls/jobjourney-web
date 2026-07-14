@@ -199,7 +199,7 @@ export default function ApplicationDetailPage({
         </h2>
         {statusHistory.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Aucun changement de statut pour le moment.
+            Aucun changement de statut enregistré pour le moment.
           </p>
         ) : (
           <div className="flex flex-col gap-2">
