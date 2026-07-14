@@ -84,7 +84,7 @@ export type Application = {
   updatedAt: string;
   interviewSteps: InterviewStep[];
   preparationTasks: PreparationTask[];
-  statusHistory: ApplicationStatusHistory[];
+  statusHistory?: ApplicationStatusHistory[];
 };
 export type DashboardData = {
   stats: {

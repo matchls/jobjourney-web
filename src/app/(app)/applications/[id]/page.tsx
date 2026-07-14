@@ -52,6 +52,7 @@ export default function ApplicationDetailPage({
     );
 
   const status = statusConfig[application.status];
+  const statusHistory = application.statusHistory ?? [];
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
@@ -196,13 +197,13 @@ export default function ApplicationDetailPage({
         <h2 className="text-xl font-semibold text-foreground mb-4">
           Historique du statut
         </h2>
-        {application.statusHistory.length === 0 ? (
+        {statusHistory.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             Aucun changement de statut pour le moment.
           </p>
         ) : (
           <div className="flex flex-col gap-2">
-            {application.statusHistory.map((entry) => (
+            {statusHistory.map((entry) => (
               <div
                 key={entry.id}
                 className="flex items-center justify-between text-sm bg-card border border-border rounded-lg px-4 py-2.5"
