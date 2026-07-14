@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Bell, HelpCircle, Search } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 
@@ -30,9 +31,12 @@ export function AppHeader() {
         <button className="p-2 text-muted-foreground hover:text-foreground transition-colors rounded-full hover:bg-accent">
           <Bell size={18} />
         </button>
-        <button className="p-2 text-muted-foreground hover:text-foreground transition-colors rounded-full hover:bg-accent">
+        <Link
+          href="/help-center"
+          className="p-2 text-muted-foreground hover:text-foreground transition-colors rounded-full hover:bg-accent"
+        >
           <HelpCircle size={18} />
-        </button>
+        </Link>
         <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">
           {initials}
         </div>

@@ -8,12 +8,9 @@ import {
   Briefcase,
   TrendingUp,
   Settings,
-  LogOut,
-  HelpCircle,
   Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/lib/auth";
 import Image from "next/image";
 
 const navItems = [
@@ -26,7 +23,6 @@ const navItems = [
 
 export function AppSidebar() {
   const pathname = usePathname();
-  const { logout } = useAuth();
 
   return (
     <aside className="w-64 bg-sidebar text-sidebar-foreground flex flex-col h-screen sticky top-0">
@@ -73,7 +69,7 @@ export function AppSidebar() {
       </nav>
 
       {/* CTA */}
-      <div className="px-3 pb-3">
+      <div className="px-3 pb-4 border-t border-sidebar-border pt-3">
         <Link
           href="/applications/new"
           className="flex items-center justify-center gap-2 w-full py-2.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
@@ -81,21 +77,6 @@ export function AppSidebar() {
           <Plus size={16} />
           New Application
         </Link>
-      </div>
-
-      {/* Pied */}
-      <div className="px-2 pb-4 space-y-0.5 border-t border-sidebar-border pt-3">
-        <button className="flex items-center gap-3 px-3 py-2 rounded-md text-sm text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground w-full transition-colors">
-          <HelpCircle size={16} />
-          Help Center
-        </button>
-        <button
-          onClick={logout}
-          className="flex items-center gap-3 px-3 py-2 rounded-md text-sm text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground w-full transition-colors"
-        >
-          <LogOut size={16} />
-          Log Out
-        </button>
       </div>
     </aside>
   );

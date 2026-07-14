@@ -110,15 +110,21 @@ export function InterviewSteps({ steps, applicationId }: Props) {
                       {isCancelled && "ANNULÉ"}
                     </span>
                   </div>
-                  {step.scheduledAt && (
-                    <span
-                      className={cn(
-                        "text-xs font-medium",
-                        isActive ? "text-primary" : "text-muted-foreground",
-                      )}
-                    >
-                      {formatDate(step.scheduledAt)}
+                  {isCompleted && step.completedAt ? (
+                    <span className="text-xs font-medium text-muted-foreground">
+                      Terminé le {formatDate(step.completedAt)}
                     </span>
+                  ) : (
+                    step.scheduledAt && (
+                      <span
+                        className={cn(
+                          "text-xs font-medium",
+                          isActive ? "text-primary" : "text-muted-foreground",
+                        )}
+                      >
+                        {formatDate(step.scheduledAt)}
+                      </span>
+                    )
                   )}
                 </div>
 
@@ -258,11 +264,11 @@ export function InterviewSteps({ steps, applicationId }: Props) {
               },
             );
           }}
-          className="flex gap-2 items-center mt-2"
+          className="flex flex-col sm:flex-row gap-2 sm:items-center mt-2"
         >
           <input
             autoFocus
-            className="flex-1 px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            className="min-w-0 flex-1 px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             placeholder="Nom de l'étape"
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
@@ -278,20 +284,22 @@ export function InterviewSteps({ steps, applicationId }: Props) {
             <option value="FINAL">Final</option>
             <option value="CUSTOM">Autre</option>
           </select>
-          <button
-            type="submit"
-            disabled={isCreating}
-            className="px-3 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
-          >
-            {isCreating ? "..." : "Ajouter"}
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowForm(false)}
-            className="px-3 py-2 border border-border rounded-md text-sm hover:bg-muted transition-colors"
-          >
-            Annuler
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={isCreating}
+              className="px-3 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+            >
+              {isCreating ? "..." : "Ajouter"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowForm(false)}
+              className="px-3 py-2 border border-border rounded-md text-sm hover:bg-muted transition-colors"
+            >
+              Annuler
+            </button>
+          </div>
         </form>
       ) : (
         <button

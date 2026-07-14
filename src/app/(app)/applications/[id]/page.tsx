@@ -8,6 +8,7 @@ import {
   Share2,
   AlertTriangle,
   BookOpen,
+  ExternalLink,
 } from "lucide-react";
 import { useApplication } from "@/hooks/use-application";
 import { InterviewSteps } from "@/components/application/interview-steps";
@@ -15,6 +16,7 @@ import { PreparationTasks } from "@/components/application/preparation-tasks";
 import type { ApplicationStatus } from "@/types";
 import { useRouter } from "next/navigation";
 import { useDeleteApplication } from "@/hooks/use-delete-application";
+import { formatFrenchDate } from "@/lib/format-date";
 
 const statusConfig: Record<
   ApplicationStatus,
@@ -71,7 +73,7 @@ export default function ApplicationDetailPage({
       </nav>
 
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex items-start gap-4">
           <div className="w-12 h-12 rounded-xl bg-secondary flex items-center justify-center text-primary font-bold text-lg shrink-0">
             {application.company[0].toUpperCase()}
@@ -98,7 +100,7 @@ export default function ApplicationDetailPage({
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <button className="flex items-center gap-2 px-4 py-2 border border-border rounded-lg text-sm font-medium hover:bg-muted transition-colors">
             <Share2 size={14} />
             Partager
@@ -126,6 +128,143 @@ export default function ApplicationDetailPage({
         </div>
       </div>
 
+      {/* Informations */}
+      {(application.location ||
+        application.salary ||
+        application.offerUrl ||
+        application.jobDescription ||
+        application.contactName ||
+        application.contactRole ||
+        application.contactEmail ||
+        application.referralNote) && (
+        <section>
+          <h2 className="text-xl font-semibold text-foreground mb-4">
+            Informations
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                {"Détails de l'offre"}
+              </p>
+              {application.location && (
+                <div>
+                  <p className="text-xs text-muted-foreground">Localisation</p>
+                  <p className="text-sm text-foreground">
+                    {application.location}
+                  </p>
+                </div>
+              )}
+              {application.salary && (
+                <div>
+                  <p className="text-xs text-muted-foreground">
+                    Rémunération
+                  </p>
+                  <p className="text-sm text-foreground">
+                    {application.salary}
+                  </p>
+                </div>
+              )}
+              {application.offerUrl && (
+                <div>
+                  <p className="text-xs text-muted-foreground">
+                    {"Lien de l'offre"}
+                  </p>
+                  <a
+                    href={application.offerUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-primary hover:underline inline-flex items-center gap-1 break-all"
+                  >
+                    {application.offerUrl}
+                    <ExternalLink size={12} className="shrink-0" />
+                  </a>
+                </div>
+              )}
+              {application.jobDescription && (
+                <div>
+                  <p className="text-xs text-muted-foreground">
+                    Description du poste
+                  </p>
+                  <p className="text-sm text-foreground whitespace-pre-line">
+                    {application.jobDescription}
+                  </p>
+                </div>
+              )}
+            </div>
+            <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Contact
+              </p>
+              {(application.contactName || application.contactRole) && (
+                <div>
+                  <p className="text-xs text-muted-foreground">Interlocuteur</p>
+                  <p className="text-sm text-foreground">
+                    {[application.contactName, application.contactRole]
+                      .filter(Boolean)
+                      .join(" — ")}
+                  </p>
+                </div>
+              )}
+              {application.contactEmail && (
+                <div>
+                  <p className="text-xs text-muted-foreground">Email</p>
+                  <p className="text-sm text-foreground break-all">
+                    {application.contactEmail}
+                  </p>
+                </div>
+              )}
+              {application.referralNote && (
+                <div>
+                  <p className="text-xs text-muted-foreground">
+                    Note de recommandation
+                  </p>
+                  <p className="text-sm text-foreground whitespace-pre-line">
+                    {application.referralNote}
+                  </p>
+                </div>
+              )}
+              {!application.contactName &&
+                !application.contactRole &&
+                !application.contactEmail &&
+                !application.referralNote && (
+                  <p className="text-sm text-muted-foreground">
+                    Aucun contact renseigné.
+                  </p>
+                )}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Dates clés */}
+      <section>
+        <h2 className="text-xl font-semibold text-foreground mb-4">
+          Dates clés
+        </h2>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+          <div className="bg-card border border-border rounded-xl p-4">
+            <p className="text-xs text-muted-foreground">Créée le</p>
+            <p className="text-sm font-medium text-foreground mt-1">
+              {formatFrenchDate(application.createdAt)}
+            </p>
+          </div>
+          <div className="bg-card border border-border rounded-xl p-4">
+            <p className="text-xs text-muted-foreground">Candidaté le</p>
+            <p className="text-sm font-medium text-foreground mt-1">
+              {formatFrenchDate(application.appliedAt)}
+            </p>
+          </div>
+          <div className="bg-card border border-border rounded-xl p-4">
+            <p className="text-xs text-muted-foreground">
+              Dernier changement de statut
+            </p>
+            <p className="text-sm font-medium text-foreground mt-1">
+              {formatFrenchDate(application.statusChangedAt)}
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* Interview Journey */}
       <section>
         <h2 className="text-xl font-semibold text-foreground mb-4">
@@ -146,7 +285,7 @@ export default function ApplicationDetailPage({
           tasks={application.preparationTasks}
           applicationId={application.id}
         />
-        <div className="grid grid-cols-2 gap-4 mt-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
           <div className="bg-red-50/60 border border-red-100 rounded-xl p-4">
             <div className="flex items-center gap-2 mb-3">
               <AlertTriangle size={13} className="text-red-500" />
@@ -218,11 +357,7 @@ export default function ApplicationDetailPage({
                   </span>
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  {new Date(entry.changedAt).toLocaleDateString("fr-FR", {
-                    day: "2-digit",
-                    month: "long",
-                    year: "numeric",
-                  })}
+                  {formatFrenchDate(entry.changedAt)}
                 </span>
               </div>
             ))}

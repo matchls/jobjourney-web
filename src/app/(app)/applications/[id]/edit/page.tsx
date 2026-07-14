@@ -56,6 +56,13 @@ function EditForm({
     status: application.status,
     notes: application.notes ?? "",
     appliedAt: application.appliedAt ? application.appliedAt.slice(0, 10) : "",
+    location: application.location ?? "",
+    salary: application.salary ?? "",
+    jobDescription: application.jobDescription ?? "",
+    contactName: application.contactName ?? "",
+    contactRole: application.contactRole ?? "",
+    contactEmail: application.contactEmail ?? "",
+    referralNote: application.referralNote ?? "",
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -69,6 +76,13 @@ function EditForm({
         appliedAt: form.appliedAt
           ? new Date(form.appliedAt).toISOString()
           : undefined,
+        location: form.location || undefined,
+        salary: form.salary || undefined,
+        jobDescription: form.jobDescription || undefined,
+        contactName: form.contactName || undefined,
+        contactRole: form.contactRole || undefined,
+        contactEmail: form.contactEmail || undefined,
+        referralNote: form.referralNote || undefined,
       },
       { onSuccess: () => router.push(`/applications/${id}`) },
     );
@@ -163,6 +177,100 @@ function EditForm({
             type="date"
             value={form.appliedAt}
             onChange={(e) => setForm({ ...form, appliedAt: e.target.value })}
+          />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-1">
+            <label className="text-sm font-medium">
+              Localisation{" "}
+              <span className="text-muted-foreground">(optionnel)</span>
+            </label>
+            <input
+              className={inputClass}
+              value={form.location}
+              onChange={(e) => setForm({ ...form, location: e.target.value })}
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-sm font-medium">
+              Rémunération{" "}
+              <span className="text-muted-foreground">(optionnel)</span>
+            </label>
+            <input
+              className={inputClass}
+              value={form.salary}
+              onChange={(e) => setForm({ ...form, salary: e.target.value })}
+            />
+          </div>
+        </div>
+        <div className="space-y-1">
+          <label className="text-sm font-medium">
+            Description du poste{" "}
+            <span className="text-muted-foreground">(optionnel)</span>
+          </label>
+          <textarea
+            className={inputClass}
+            rows={3}
+            value={form.jobDescription}
+            onChange={(e) =>
+              setForm({ ...form, jobDescription: e.target.value })
+            }
+          />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-1">
+            <label className="text-sm font-medium">
+              Nom du contact{" "}
+              <span className="text-muted-foreground">(optionnel)</span>
+            </label>
+            <input
+              className={inputClass}
+              value={form.contactName}
+              onChange={(e) =>
+                setForm({ ...form, contactName: e.target.value })
+              }
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-sm font-medium">
+              Rôle du contact{" "}
+              <span className="text-muted-foreground">(optionnel)</span>
+            </label>
+            <input
+              className={inputClass}
+              value={form.contactRole}
+              onChange={(e) =>
+                setForm({ ...form, contactRole: e.target.value })
+              }
+            />
+          </div>
+        </div>
+        <div className="space-y-1">
+          <label className="text-sm font-medium">
+            Email du contact{" "}
+            <span className="text-muted-foreground">(optionnel)</span>
+          </label>
+          <input
+            className={inputClass}
+            type="email"
+            value={form.contactEmail}
+            onChange={(e) =>
+              setForm({ ...form, contactEmail: e.target.value })
+            }
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-sm font-medium">
+            Note de recommandation{" "}
+            <span className="text-muted-foreground">(optionnel)</span>
+          </label>
+          <textarea
+            className={inputClass}
+            rows={2}
+            value={form.referralNote}
+            onChange={(e) =>
+              setForm({ ...form, referralNote: e.target.value })
+            }
           />
         </div>
         <div className="space-y-1">

@@ -9,6 +9,13 @@ export type CreateApplicationInput = {
   offerUrl?: string;
   status?: ApplicationStatus;
   appliedAt?: string;
+  location?: string;
+  salary?: string;
+  jobDescription?: string;
+  contactName?: string;
+  contactRole?: string;
+  contactEmail?: string;
+  referralNote?: string;
 };
 
 export function useCreateApplication() {

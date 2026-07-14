@@ -138,10 +138,10 @@ export function PreparationTasks({ tasks, applicationId }: Props) {
               { onSuccess: () => setNewTitle("") },
             );
           }}
-          className="flex gap-2 mt-4"
+          className="flex flex-col sm:flex-row gap-2 mt-4"
         >
           <input
-            className="flex-1 px-3 py-1.5 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            className="min-w-0 w-full sm:flex-1 px-3 py-1.5 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             placeholder="Nouvelle tâche..."
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
@@ -150,7 +150,7 @@ export function PreparationTasks({ tasks, applicationId }: Props) {
           <button
             type="submit"
             disabled={isCreating || !newTitle}
-            className="px-3 py-1.5 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+            className="shrink-0 px-3 py-1.5 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 sm:w-auto w-full flex items-center justify-center"
           >
             <Plus size={14} />
           </button>
