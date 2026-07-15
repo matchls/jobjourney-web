@@ -25,6 +25,14 @@ function formatDate(dateStr: string) {
   return date.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
 }
 
+// <input type="datetime-local"> expects "YYYY-MM-DDTHH:mm" in local time,
+// with no timezone info — this converts an ISO string to that shape.
+function toDatetimeLocalValue(dateStr: string) {
+  const date = new Date(dateStr);
+  const offsetMs = date.getTimezoneOffset() * 60000;
+  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
+}
+
 export function InterviewSteps({ steps, applicationId }: Props) {
   const {
     mutate: updateStep,
@@ -42,6 +50,15 @@ export function InterviewSteps({ steps, applicationId }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newType, setNewType] = useState<InterviewStepType>("HR");
+  const [newScheduledAt, setNewScheduledAt] = useState("");
+
+  const [editingDateId, setEditingDateId] = useState<string | null>(null);
+  const [dateValue, setDateValue] = useState("");
+
+  const startEditingDate = (step: InterviewStep) => {
+    setEditingDateId(step.id);
+    setDateValue(step.scheduledAt ? toDatetimeLocalValue(step.scheduledAt) : "");
+  };
 
   const sorted = [...steps].sort((a, b) => a.order - b.order);
   const firstPlannedIndex = sorted.findIndex((s) => s.status === "PLANNED");
@@ -229,6 +246,60 @@ export function InterviewSteps({ steps, applicationId }: Props) {
                     {isCompleted ? "Marquer non terminé" : "Marquer terminé"}
                   </button>
                 )}
+
+                {/* Date d'entretien — étapes à venir (actives ou futures) */}
+                {(isActive || isFuture) &&
+                  (editingDateId === step.id ? (
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        updateStep(
+                          {
+                            applicationId,
+                            stepId: step.id,
+                            scheduledAt: dateValue
+                              ? new Date(dateValue).toISOString()
+                              : undefined,
+                          },
+                          { onSuccess: () => setEditingDateId(null) },
+                        );
+                      }}
+                      className="flex flex-wrap items-center gap-2 mt-3"
+                    >
+                      <input
+                        type="datetime-local"
+                        autoFocus
+                        value={dateValue}
+                        onChange={(e) => setDateValue(e.target.value)}
+                        className="px-2 py-1.5 border border-border rounded-md bg-background text-xs focus:outline-none focus:ring-2 focus:ring-ring"
+                      />
+                      <button
+                        type="submit"
+                        disabled={isPending}
+                        className="text-xs font-medium px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+                      >
+                        Enregistrer
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditingDateId(null)}
+                        className="text-xs font-medium px-3 py-1.5 rounded-lg border border-border hover:bg-accent transition-colors"
+                      >
+                        Annuler
+                      </button>
+                    </form>
+                  ) : (
+                    !isActive && (
+                      <button
+                        onClick={() => startEditingDate(step)}
+                        className="mt-3 text-xs font-medium text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
+                      >
+                        {step.scheduledAt
+                          ? "Modifier la date"
+                          : "Planifier une date"}
+                      </button>
+                    )
+                  ))}
               </div>
 
               {/* Boutons Zoom / Date — étape active uniquement */}
@@ -239,9 +310,12 @@ export function InterviewSteps({ steps, applicationId }: Props) {
                     <Video size={13} />
                     Démarrer Zoom
                   </button>
-                  <button className="flex items-center gap-2 text-xs font-medium border border-border px-4 py-2 rounded-lg hover:bg-muted transition-colors whitespace-nowrap">
+                  <button
+                    onClick={() => startEditingDate(step)}
+                    className="flex items-center gap-2 text-xs font-medium border border-border px-4 py-2 rounded-lg hover:bg-muted transition-colors whitespace-nowrap"
+                  >
                     <Calendar size={13} />
-                    Modifier date
+                    {step.scheduledAt ? "Modifier date" : "Planifier"}
                   </button>
                 </div>
               )}
@@ -265,12 +339,16 @@ export function InterviewSteps({ steps, applicationId }: Props) {
                 title: newTitle,
                 type: newType,
                 order: steps.length,
+                scheduledAt: newScheduledAt
+                  ? new Date(newScheduledAt).toISOString()
+                  : undefined,
               },
               {
                 onSuccess: () => {
                   setShowForm(false);
                   setNewTitle("");
                   setNewType("HR");
+                  setNewScheduledAt("");
                 },
               },
             );
@@ -295,6 +373,12 @@ export function InterviewSteps({ steps, applicationId }: Props) {
             <option value="FINAL">Final</option>
             <option value="CUSTOM">Autre</option>
           </select>
+          <input
+            type="datetime-local"
+            className="px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            value={newScheduledAt}
+            onChange={(e) => setNewScheduledAt(e.target.value)}
+          />
           <div className="flex gap-2">
             <button
               type="submit"
