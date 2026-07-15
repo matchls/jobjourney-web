@@ -21,6 +21,9 @@ export function useUpdateInterviewStep() {
       queryClient.invalidateQueries({
         queryKey: ["applications", applicationId],
       });
+      // Completing/uncompleting a step changes the dashboard's completed
+      // interviews counter, so that query needs to be refetched too.
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
   });
 }

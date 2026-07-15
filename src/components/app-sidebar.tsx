@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
+import { NewApplicationDialog } from "@/components/applications/new-application-dialog";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -70,13 +71,14 @@ export function AppSidebar() {
 
       {/* CTA */}
       <div className="px-3 pb-4 border-t border-sidebar-border pt-3">
-        <Link
-          href="/applications/new"
-          className="flex items-center justify-center gap-2 w-full py-2.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
-        >
-          <Plus size={16} />
-          New Application
-        </Link>
+        <NewApplicationDialog
+          trigger={
+            <button className="flex items-center justify-center gap-2 w-full py-2.5 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">
+              <Plus size={16} />
+              New Application
+            </button>
+          }
+        />
       </div>
     </aside>
   );

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Search,
   ChevronDown,
@@ -12,9 +12,19 @@ import {
   Check,
   X,
   Leaf,
+  Eye,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { useApplications } from "@/hooks/use-applications";
+import { useDeleteApplication } from "@/hooks/use-delete-application";
 import { NewApplicationDialog } from "@/components/applications/new-application-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import type { Application, ApplicationStatus } from "@/types";
 
@@ -116,6 +126,9 @@ function StepProgress({ app }: { app: Application }) {
 export default function ApplicationsPage() {
   const { data: applications = [], isLoading } = useApplications();
   const [search, setSearch] = useState("");
+  const router = useRouter();
+  const { mutate: deleteApplication, error: deleteError } =
+    useDeleteApplication();
 
   const filtered = search
     ? applications.filter((app) => {
@@ -180,10 +193,17 @@ export default function ApplicationsPage() {
               : null;
 
             return (
-              <Link
+              <div
                 key={app.id}
-                href={`/applications/${app.id}`}
-                className="flex items-center gap-4 p-4 bg-card border border-border rounded-xl hover:border-primary/50 transition-colors"
+                role="link"
+                tabIndex={0}
+                onClick={() => router.push(`/applications/${app.id}`)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    router.push(`/applications/${app.id}`);
+                  }
+                }}
+                className="flex items-center gap-4 p-4 bg-card border border-border rounded-xl hover:border-primary/50 transition-colors cursor-pointer"
               >
                 {/* Icône entreprise */}
                 <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center text-sm font-bold text-secondary-foreground shrink-0">
@@ -230,17 +250,59 @@ export default function ApplicationsPage() {
                 {/* Menu */}
                 <div
                   className="shrink-0 text-muted-foreground hover:text-foreground p-1 rounded"
-                  onClick={(e) => e.preventDefault()}
+                  onClick={(e) => e.stopPropagation()}
                 >
                   {app.status === "REJECTED" ? (
                     <RotateCcw size={16} />
                   ) : (
-                    <MoreHorizontal size={16} />
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          aria-label="Actions"
+                          className="p-1 rounded hover:bg-accent hover:text-foreground transition-colors"
+                        >
+                          <MoreHorizontal size={16} />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={() =>
+                            router.push(`/applications/${app.id}`)
+                          }
+                        >
+                          <Eye size={14} />
+                          Voir
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() =>
+                            router.push(`/applications/${app.id}/edit`)
+                          }
+                        >
+                          <Pencil size={14} />
+                          Modifier
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onClick={() => {
+                            if (confirm("Supprimer cette candidature ?")) {
+                              deleteApplication(app.id);
+                            }
+                          }}
+                        >
+                          <Trash2 size={14} />
+                          Supprimer
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   )}
                 </div>
-              </Link>
+              </div>
             );
           })}
+
+          {deleteError && (
+            <p className="text-sm text-destructive">{deleteError.message}</p>
+          )}
 
           {/* Card motivationnelle */}
           <div className="mt-2 p-8 border border-dashed border-border rounded-xl flex flex-col items-center gap-3 text-center">

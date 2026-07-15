@@ -21,7 +21,13 @@ export function ApplicationCard({ application }: Props) {
   return (
     <Link
       href={`/applications/${application.id}`}
-      className="block p-4 bg-card border border-border rounded-xl hover:border-primary transition-colors"
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData("application/id", application.id);
+        e.dataTransfer.setData("application/status", application.status);
+        e.dataTransfer.effectAllowed = "move";
+      }}
+      className="block p-4 bg-card border border-border rounded-xl hover:border-primary transition-colors cursor-grab active:cursor-grabbing"
     >
       <p className="font-semibold text-sm text-foreground truncate">
         {application.company}

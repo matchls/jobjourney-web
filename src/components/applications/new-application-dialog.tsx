@@ -42,7 +42,7 @@ export function NewApplicationDialog({
   };
   const [form, setForm] = useState(emptyForm);
 
-  const { mutate, isPending } = useCreateApplication();
+  const { mutate, isPending, error } = useCreateApplication();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,7 +64,16 @@ export function NewApplicationDialog({
         contactEmail: form.contactEmail || undefined,
         referralNote: form.referralNote || undefined,
       },
-      { onSuccess: () => setOpen(false) },
+      {
+        onSuccess: () => {
+          // Programmatically closing the dialog doesn't trigger Radix's
+          // onOpenChange, so the form reset below (which normally runs on
+          // close) has to happen here too — otherwise reopening the dialog
+          // shows the previous submission's values instead of a blank form.
+          setOpen(false);
+          setForm({ ...emptyForm, status: defaultStatus ?? "TARGETED" });
+        },
+      },
     );
   };
 
@@ -240,6 +249,9 @@ export function NewApplicationDialog({
               }
             />
           </div>
+          {error && (
+            <p className="text-xs text-destructive">{error.message}</p>
+          )}
           <Button type="submit" className="w-full" disabled={isPending}>
             {isPending ? "Création..." : "Créer la candidature"}
           </Button>

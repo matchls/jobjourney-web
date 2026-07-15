@@ -35,7 +35,10 @@ export default function EditApplicationPage({
       <p className="text-sm text-muted-foreground">Candidature introuvable.</p>
     );
 
-  return <EditForm id={id} application={application} />;
+  // key={id} forces a remount (and a fresh useState) when navigating between
+  // two different applications' edit pages, so stale field values from a
+  // previously edited application can't leak into this one.
+  return <EditForm key={id} id={id} application={application} />;
 }
 
 function EditForm({
@@ -46,7 +49,7 @@ function EditForm({
   application: Application;
 }) {
   const router = useRouter();
-  const { mutate, isPending } = useUpdateApplication();
+  const { mutate, isPending, error } = useUpdateApplication();
 
   const [form, setForm] = useState({
     company: application.company,
@@ -284,6 +287,7 @@ function EditForm({
             onChange={(e) => setForm({ ...form, notes: e.target.value })}
           />
         </div>
+        {error && <p className="text-sm text-destructive">{error.message}</p>}
         <div className="flex gap-3 pt-2">
           <Button type="submit" disabled={isPending}>
             {isPending ? "Enregistrement..." : "Enregistrer"}
