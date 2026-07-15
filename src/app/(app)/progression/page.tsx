@@ -127,11 +127,19 @@ export default function ProgressionPage() {
     <div className="flex flex-col gap-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">
-          {"Votre Coach d'Apprentissage"}
-        </h1>
+        <div className="flex items-center gap-3 flex-wrap">
+          <h1 className="text-2xl font-bold tracking-tight">
+            {"Votre Coach d'Apprentissage"}
+          </h1>
+          <span className="text-[10px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full bg-amber-50 text-amber-600 border border-amber-200 whitespace-nowrap">
+            Données de démonstration
+          </span>
+        </div>
         <p className="text-sm text-muted-foreground mt-1">
           Suivez votre progression et optimisez votre préparation
+        </p>
+        <p className="text-xs text-muted-foreground mt-1">
+          Certaines métriques sont simulées en attendant les analytics V1.1.
         </p>
       </div>
 
