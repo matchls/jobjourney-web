@@ -32,6 +32,13 @@ export function NewApplicationDialog({
     offerUrl: "",
     status: defaultStatus ?? "TARGETED",
     appliedAt: "",
+    location: "",
+    salary: "",
+    jobDescription: "",
+    contactName: "",
+    contactRole: "",
+    contactEmail: "",
+    referralNote: "",
   };
   const [form, setForm] = useState(emptyForm);
 
@@ -49,6 +56,13 @@ export function NewApplicationDialog({
         appliedAt: form.appliedAt
           ? new Date(form.appliedAt).toISOString()
           : undefined,
+        location: form.location || undefined,
+        salary: form.salary || undefined,
+        jobDescription: form.jobDescription || undefined,
+        contactName: form.contactName || undefined,
+        contactRole: form.contactRole || undefined,
+        contactEmail: form.contactEmail || undefined,
+        referralNote: form.referralNote || undefined,
       },
       { onSuccess: () => setOpen(false) },
     );
@@ -72,7 +86,7 @@ export function NewApplicationDialog({
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Nouvelle candidature</DialogTitle>
         </DialogHeader>
@@ -128,6 +142,102 @@ export function NewApplicationDialog({
               type="date"
               value={form.appliedAt}
               onChange={(e) => setForm({ ...form, appliedAt: e.target.value })}
+            />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="text-sm font-medium">
+                Localisation{" "}
+                <span className="text-muted-foreground">(optionnel)</span>
+              </label>
+              <input
+                className={inputClass}
+                value={form.location}
+                onChange={(e) =>
+                  setForm({ ...form, location: e.target.value })
+                }
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">
+                Rémunération{" "}
+                <span className="text-muted-foreground">(optionnel)</span>
+              </label>
+              <input
+                className={inputClass}
+                value={form.salary}
+                onChange={(e) => setForm({ ...form, salary: e.target.value })}
+              />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <label className="text-sm font-medium">
+              Description du poste{" "}
+              <span className="text-muted-foreground">(optionnel)</span>
+            </label>
+            <textarea
+              className={inputClass}
+              rows={3}
+              value={form.jobDescription}
+              onChange={(e) =>
+                setForm({ ...form, jobDescription: e.target.value })
+              }
+            />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="text-sm font-medium">
+                Nom du contact{" "}
+                <span className="text-muted-foreground">(optionnel)</span>
+              </label>
+              <input
+                className={inputClass}
+                value={form.contactName}
+                onChange={(e) =>
+                  setForm({ ...form, contactName: e.target.value })
+                }
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">
+                Rôle du contact{" "}
+                <span className="text-muted-foreground">(optionnel)</span>
+              </label>
+              <input
+                className={inputClass}
+                value={form.contactRole}
+                onChange={(e) =>
+                  setForm({ ...form, contactRole: e.target.value })
+                }
+              />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <label className="text-sm font-medium">
+              Email du contact{" "}
+              <span className="text-muted-foreground">(optionnel)</span>
+            </label>
+            <input
+              className={inputClass}
+              type="email"
+              value={form.contactEmail}
+              onChange={(e) =>
+                setForm({ ...form, contactEmail: e.target.value })
+              }
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-sm font-medium">
+              Note de recommandation{" "}
+              <span className="text-muted-foreground">(optionnel)</span>
+            </label>
+            <textarea
+              className={inputClass}
+              rows={2}
+              value={form.referralNote}
+              onChange={(e) =>
+                setForm({ ...form, referralNote: e.target.value })
+              }
             />
           </div>
           <Button type="submit" className="w-full" disabled={isPending}>

@@ -7,6 +7,7 @@ import {
   CheckCircle,
   XCircle,
   CalendarDays,
+  CalendarCheck2,
   BookOpen,
   CheckCircle2,
   Circle,
@@ -21,6 +22,10 @@ export default function DashboardPage() {
   }
 
   const firstInterview = data?.upcomingInterviews[0];
+  const completedInterviews = data?.completedInterviews ?? {
+    total: 0,
+    byCompany: {},
+  };
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -70,7 +75,7 @@ export default function DashboardPage() {
             {"Bienvenue, voici l'état de votre parcours aujourd'hui."}
           </p>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <div className="bg-card border border-border p-6 rounded-xl hover:shadow-sm transition-all">
             <div className="mb-4">
               <span className="p-2 bg-secondary rounded-lg inline-flex">
@@ -95,6 +100,19 @@ export default function DashboardPage() {
             </p>
             <p className="text-4xl font-bold text-foreground mt-1">
               {data?.stats.byStatus.INTERVIEWING ?? 0}
+            </p>
+          </div>
+          <div className="bg-card border border-border p-6 rounded-xl hover:shadow-sm transition-all">
+            <div className="mb-4">
+              <span className="p-2 bg-secondary rounded-lg inline-flex">
+                <CalendarCheck2 size={18} className="text-primary" />
+              </span>
+            </div>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Entretiens réalisés
+            </p>
+            <p className="text-4xl font-bold text-foreground mt-1">
+              {completedInterviews.total}
             </p>
           </div>
           <div className="bg-card border border-border p-6 rounded-xl hover:shadow-sm transition-all">
@@ -125,6 +143,34 @@ export default function DashboardPage() {
           </div>
         </div>
       </section>
+
+      {/* Entretiens réalisés par entreprise */}
+      {Object.keys(completedInterviews.byCompany).length > 0 && (
+        <section>
+          <div className="mb-4">
+            <h2 className="text-lg font-semibold text-foreground">
+              Entretiens réalisés par entreprise
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {Object.entries(completedInterviews.byCompany).map(
+              ([company, count]) => (
+                <div
+                  key={company}
+                  className="bg-card border border-border p-4 rounded-xl flex items-center justify-between gap-2"
+                >
+                  <p className="text-sm font-medium text-foreground truncate">
+                    {company}
+                  </p>
+                  <p className="text-lg font-bold text-primary shrink-0">
+                    {count}
+                  </p>
+                </div>
+              ),
+            )}
+          </div>
+        </section>
+      )}
 
       {/* Bento grid */}
       <div className="grid grid-cols-12 gap-6">

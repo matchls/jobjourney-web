@@ -11,6 +11,13 @@ export type UpdateApplicationInput = {
   status?: ApplicationStatus;
   notes?: string;
   appliedAt?: string;
+  location?: string;
+  salary?: string;
+  jobDescription?: string;
+  contactName?: string;
+  contactRole?: string;
+  contactEmail?: string;
+  referralNote?: string;
 };
 
 export function useUpdateApplication() {

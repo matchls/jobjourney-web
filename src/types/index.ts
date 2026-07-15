@@ -79,6 +79,13 @@ export type Application = {
   notes: string | null;
   resumeText: string | null;
   coverLetterText: string | null;
+  location: string | null;
+  salary: string | null;
+  jobDescription: string | null;
+  contactName: string | null;
+  contactRole: string | null;
+  contactEmail: string | null;
+  referralNote: string | null;
   userId: string;
   createdAt: string;
   updatedAt: string;
@@ -107,4 +114,8 @@ export type DashboardData = {
       position: string;
     };
   }[];
+  completedInterviews: {
+    total: number;
+    byCompany: Record<string, number>;
+  };
 };
