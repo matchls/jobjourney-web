@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Search,
@@ -194,10 +193,17 @@ export default function ApplicationsPage() {
               : null;
 
             return (
-              <Link
+              <div
                 key={app.id}
-                href={`/applications/${app.id}`}
-                className="flex items-center gap-4 p-4 bg-card border border-border rounded-xl hover:border-primary/50 transition-colors"
+                role="link"
+                tabIndex={0}
+                onClick={() => router.push(`/applications/${app.id}`)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    router.push(`/applications/${app.id}`);
+                  }
+                }}
+                className="flex items-center gap-4 p-4 bg-card border border-border rounded-xl hover:border-primary/50 transition-colors cursor-pointer"
               >
                 {/* Icône entreprise */}
                 <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center text-sm font-bold text-secondary-foreground shrink-0">
@@ -244,7 +250,7 @@ export default function ApplicationsPage() {
                 {/* Menu */}
                 <div
                   className="shrink-0 text-muted-foreground hover:text-foreground p-1 rounded"
-                  onClick={(e) => e.preventDefault()}
+                  onClick={(e) => e.stopPropagation()}
                 >
                   {app.status === "REJECTED" ? (
                     <RotateCcw size={16} />
@@ -290,7 +296,7 @@ export default function ApplicationsPage() {
                     </DropdownMenu>
                   )}
                 </div>
-              </Link>
+              </div>
             );
           })}
 
