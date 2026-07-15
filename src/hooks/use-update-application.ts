@@ -29,8 +29,11 @@ export function useUpdateApplication() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["applications"] });
       queryClient.invalidateQueries({
-        queryKey: ["application", variables.id],
+        queryKey: ["applications", variables.id],
       });
+      // A status change (e.g. moving a card between Kanban columns) also
+      // changes the dashboard's per-status counters.
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
   });
 }

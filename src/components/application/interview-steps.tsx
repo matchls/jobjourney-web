@@ -26,10 +26,18 @@ function formatDate(dateStr: string) {
 }
 
 export function InterviewSteps({ steps, applicationId }: Props) {
-  const { mutate: updateStep, isPending } = useUpdateInterviewStep();
-  const { mutate: createStep, isPending: isCreating } =
-    useCreateInterviewStep();
-  const { mutate: deleteStep } = useDeleteInterviewStep();
+  const {
+    mutate: updateStep,
+    isPending,
+    error: updateError,
+  } = useUpdateInterviewStep();
+  const {
+    mutate: createStep,
+    isPending: isCreating,
+    error: createError,
+  } = useCreateInterviewStep();
+  const { mutate: deleteStep, error: deleteError } = useDeleteInterviewStep();
+  const mutationError = updateError ?? createError ?? deleteError;
 
   const [showForm, setShowForm] = useState(false);
   const [newTitle, setNewTitle] = useState("");
@@ -40,6 +48,9 @@ export function InterviewSteps({ steps, applicationId }: Props) {
 
   return (
     <div className="flex flex-col gap-4">
+      {mutationError && (
+        <p className="text-sm text-destructive">{mutationError.message}</p>
+      )}
       {sorted.length === 0 && (
         <p className="text-sm text-muted-foreground">
           Aucune étape configurée.
