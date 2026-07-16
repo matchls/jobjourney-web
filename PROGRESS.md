@@ -23,6 +23,10 @@
   - Carte Kanban (`application-card.tsx`) : pastille de temps dans la colonne + point ambre discret si stagnation (pas de déplacement automatique)
   - Champ "Date de candidature" (`appliedAt`) dans le formulaire de création et le formulaire d'édition
   - Page détail candidature : section "Historique du statut" (liste des transitions avec date en français)
+- Date d'entretien (`scheduledAt`) éditable :
+  - Formulaire d'ajout d'étape (`interview-steps.tsx`) : champ `datetime-local` optionnel
+  - Étape existante (active ou future) : bouton "Modifier date"/"Planifier une date" → formulaire inline `datetime-local`, envoyé en ISO à l'API
+  - `use-create-interview-step.ts` / `use-update-interview-step.ts` : invalident désormais `["applications", id]` **et** `["dashboard"]` pour que "Prochains entretiens" se mette à jour sans rechargement manuel
 
 ## ⏭️ Plan V1 — Fonctionnalités manquantes
 

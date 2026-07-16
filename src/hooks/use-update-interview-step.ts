@@ -5,24 +5,26 @@ import type { InterviewStepStatus } from "@/types";
 type UpdateInput = {
   applicationId: string;
   stepId: string;
-  status: InterviewStepStatus;
+  status?: InterviewStepStatus;
+  scheduledAt?: string;
 };
 
 export function useUpdateInterviewStep() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ applicationId, stepId, status }: UpdateInput) =>
+    mutationFn: ({ applicationId, stepId, ...data }: UpdateInput) =>
       apiClient.patch(
         `/applications/${applicationId}/interview-steps/${stepId}`,
-        { status },
+        data,
       ),
     onSuccess: (_, { applicationId }) => {
       queryClient.invalidateQueries({
         queryKey: ["applications", applicationId],
       });
-      // Completing/uncompleting a step changes the dashboard's completed
-      // interviews counter, so that query needs to be refetched too.
+      // Completing/uncompleting a step or rescheduling it changes the
+      // dashboard's completed counter and upcoming interviews list, so
+      // that query needs to be refetched too.
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
   });
