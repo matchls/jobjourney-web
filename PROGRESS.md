@@ -27,6 +27,10 @@
   - Formulaire d'ajout d'étape (`interview-steps.tsx`) : champ `datetime-local` optionnel
   - Étape existante (active ou future) : bouton "Modifier date"/"Planifier une date" → formulaire inline `datetime-local`, envoyé en ISO à l'API
   - `use-create-interview-step.ts` / `use-update-interview-step.ts` : invalident désormais `["applications", id]` **et** `["dashboard"]` pour que "Prochains entretiens" se mette à jour sans rechargement manuel
+- Filtres page Candidatures (V1.1, issue #6) :
+  - Recherche texte (entreprise, poste, localisation, source), filtre statut, filtre source (dérivé des données), bouton "Réinitialiser", état vide dédié
+  - 100% client-side sur les données déjà chargées par `useApplications()` — aucun changement backend, pas de pagination serveur
+  - Réutilisation de `DropdownMenuRadioGroup`/`DropdownMenuRadioItem` (déjà présents dans `dropdown-menu.tsx`, non utilisés jusqu'ici)
 
 ## ⏭️ Plan V1 — Fonctionnalités manquantes
 
@@ -89,7 +93,6 @@
 - Processus d'entretien par défaut dans Settings
 - Score de préparation amélioré
 - Analytics enrichis
-- Filtres actifs sur la page Candidatures (statut, source)
 - Bouton "Partager" fonctionnel
 - Bouton "Démarrer Zoom" fonctionnel
 - Endpoint `/progression` backend (compétences, questions récurrentes, historique)
