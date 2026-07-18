@@ -23,10 +23,20 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import type { Application, ApplicationStatus } from "@/types";
+
+const STATUS_ORDER: ApplicationStatus[] = [
+  "TARGETED",
+  "APPLIED",
+  "INTERVIEWING",
+  "OFFER",
+  "REJECTED",
+];
 
 const STATUS_CONFIG: Record<
   ApplicationStatus,
@@ -126,19 +136,44 @@ function StepProgress({ app }: { app: Application }) {
 export default function ApplicationsPage() {
   const { data: applications = [], isLoading } = useApplications();
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<ApplicationStatus | "ALL">(
+    "ALL",
+  );
+  const [sourceFilter, setSourceFilter] = useState("ALL");
   const router = useRouter();
   const { mutate: deleteApplication, error: deleteError } =
     useDeleteApplication();
 
-  const filtered = search
-    ? applications.filter((app) => {
-        const q = search.toLowerCase();
-        return (
-          app.company.toLowerCase().includes(q) ||
-          app.position.toLowerCase().includes(q)
-        );
-      })
-    : applications;
+  const sources = Array.from(
+    new Set(
+      applications
+        .map((app) => app.source)
+        .filter((source): source is string => Boolean(source)),
+    ),
+  ).sort((a, b) => a.localeCompare(b, "fr"));
+
+  const query = search.trim().toLowerCase();
+  const filtered = applications.filter((app) => {
+    const matchesSearch =
+      query === "" ||
+      [app.company, app.position, app.location, app.source].some((value) =>
+        value?.toLowerCase().includes(query),
+      );
+    const matchesStatus =
+      statusFilter === "ALL" || app.status === statusFilter;
+    const matchesSource =
+      sourceFilter === "ALL" || app.source === sourceFilter;
+    return matchesSearch && matchesStatus && matchesSource;
+  });
+
+  const hasActiveFilters =
+    query !== "" || statusFilter !== "ALL" || sourceFilter !== "ALL";
+
+  function handleReset() {
+    setSearch("");
+    setStatusFilter("ALL");
+    setSourceFilter("ALL");
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -154,33 +189,118 @@ export default function ApplicationsPage() {
       </div>
 
       {/* Filtres */}
-      <div className="flex gap-3">
-        <div className="flex-1 relative">
+      <div className="flex flex-wrap gap-3">
+        <div className="flex-1 min-w-[220px] relative">
           <Search
             size={14}
             className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
           />
           <input
             type="text"
-            placeholder="Rechercher une entreprise ou un poste"
+            placeholder="Rechercher une entreprise, un poste, une localisation ou une source"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-9 pr-4 py-2 border border-border rounded-lg text-sm bg-card focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 border border-border rounded-lg text-sm font-medium bg-card hover:bg-muted transition-colors whitespace-nowrap">
-          Tous les statuts
-          <ChevronDown size={14} className="text-muted-foreground" />
-        </button>
-        <button className="flex items-center gap-2 px-4 py-2 border border-border rounded-lg text-sm font-medium bg-card hover:bg-muted transition-colors whitespace-nowrap">
-          Toutes les sources
-          <ChevronDown size={14} className="text-muted-foreground" />
-        </button>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="flex items-center gap-2 px-4 py-2 border border-border rounded-lg text-sm font-medium bg-card hover:bg-muted transition-colors whitespace-nowrap">
+              {statusFilter === "ALL"
+                ? "Tous les statuts"
+                : STATUS_CONFIG[statusFilter].label}
+              <ChevronDown size={14} className="text-muted-foreground" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="min-w-48">
+            <DropdownMenuRadioGroup
+              value={statusFilter}
+              onValueChange={(value) =>
+                setStatusFilter(value as ApplicationStatus | "ALL")
+              }
+            >
+              <DropdownMenuRadioItem value="ALL">
+                Tous les statuts
+              </DropdownMenuRadioItem>
+              {STATUS_ORDER.map((status) => (
+                <DropdownMenuRadioItem key={status} value={status}>
+                  {STATUS_CONFIG[status].label}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="flex items-center gap-2 px-4 py-2 border border-border rounded-lg text-sm font-medium bg-card hover:bg-muted transition-colors whitespace-nowrap max-w-48">
+              <span className="truncate">
+                {sourceFilter === "ALL" ? "Toutes les sources" : sourceFilter}
+              </span>
+              <ChevronDown
+                size={14}
+                className="text-muted-foreground shrink-0"
+              />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="min-w-48">
+            <DropdownMenuRadioGroup
+              value={sourceFilter}
+              onValueChange={setSourceFilter}
+            >
+              <DropdownMenuRadioItem value="ALL">
+                Toutes les sources
+              </DropdownMenuRadioItem>
+              {sources.map((source) => (
+                <DropdownMenuRadioItem key={source} value={source}>
+                  {source}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {hasActiveFilters && (
+          <button
+            onClick={handleReset}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap"
+          >
+            <X size={14} />
+            Réinitialiser
+          </button>
+        )}
       </div>
 
       {/* Liste */}
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Chargement...</p>
+      ) : filtered.length === 0 ? (
+        <div className="p-12 border border-dashed border-border rounded-xl flex flex-col items-center gap-3 text-center">
+          <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center">
+            <Search size={20} className="text-muted-foreground" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-foreground">
+              {hasActiveFilters
+                ? "Aucune candidature ne correspond à ces filtres"
+                : "Aucune candidature pour le moment"}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto leading-relaxed">
+              {hasActiveFilters
+                ? "Essayez d'ajuster votre recherche ou vos filtres."
+                : "Ajoutez votre première candidature pour commencer à suivre votre recherche."}
+            </p>
+          </div>
+          {hasActiveFilters && (
+            <button
+              onClick={handleReset}
+              className="mt-1 text-xs font-semibold text-primary border border-primary/30 rounded-lg px-4 py-2 hover:bg-primary/10 transition-colors"
+            >
+              Réinitialiser les filtres
+            </button>
+          )}
+        </div>
       ) : (
         <div className="flex flex-col gap-3">
           {filtered.map((app) => {
