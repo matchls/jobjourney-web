@@ -31,6 +31,13 @@
   - Recherche texte (entreprise, poste, localisation, source), filtre statut, filtre source (dérivé des données), bouton "Réinitialiser", état vide dédié
   - 100% client-side sur les données déjà chargées par `useApplications()` — aucun changement backend, pas de pagination serveur
   - Réutilisation de `DropdownMenuRadioGroup`/`DropdownMenuRadioItem` (déjà présents dans `dropdown-menu.tsx`, non utilisés jusqu'ici)
+- Tri page Candidatures (V1.1, issue #7) :
+  - Tri par : dernier changement de statut (`statusChangedAt`), date de candidature (`appliedAt`), entreprise (`company`), statut (`status`) — croissant/décroissant
+  - Tri par défaut : dernier changement de statut décroissant (fallback `createdAt` si `statusChangedAt` absent)
+  - Tri par statut basé sur l'ordre du pipeline (`STATUS_ORDER`), pas alphabétique — cohérent avec le Kanban
+  - `appliedAt` absent → toujours trié en dernier, quel que soit le sens (évite qu'une candidature sans date de candidature remonte en tête en tri croissant)
+  - Appliqué après les filtres existants (recherche/statut/source), sur une copie du tableau filtré (`[...filtered].sort(...)`)
+  - Deux dropdowns cohérents avec les filtres existants ("Trier par" + "Ordre"), tri actif affiché directement dans les boutons
 
 ## ⏭️ Plan V1 — Fonctionnalités manquantes
 
