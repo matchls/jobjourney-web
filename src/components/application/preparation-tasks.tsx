@@ -75,7 +75,7 @@ export function PreparationTasks({ tasks, applicationId }: Props) {
   const [newTitle, setNewTitle] = useState("");
   const [newSkillId, setNewSkillId] = useState("");
 
-  const completed = tasks.filter((t) => t.isCompleted).length;
+  const completed = tasks.filter((task) => task.isCompleted).length;
   const score =
     tasks.length > 0 ? Math.round((completed / tasks.length) * 100) : 0;
   const mutationError = updateError ?? createError ?? deleteError ?? skillsError;
@@ -99,63 +99,62 @@ export function PreparationTasks({ tasks, applicationId }: Props) {
           <div className="flex flex-col gap-3">
             {tasks.map((task) => (
               <div key={task.id} className="flex items-start gap-3">
-                <label className="flex items-start gap-3 cursor-pointer flex-1 min-w-0">
-                  <input
-                    type="checkbox"
-                    checked={task.isCompleted}
+                <input
+                  type="checkbox"
+                  checked={task.isCompleted}
+                  disabled={isPending}
+                  onChange={() =>
+                    updateTask({
+                      applicationId,
+                      taskId: task.id,
+                      isCompleted: !task.isCompleted,
+                    })
+                  }
+                  className="mt-0.5 accent-primary w-4 h-4 shrink-0 cursor-pointer"
+                  aria-label={`Marquer ${task.title} comme ${task.isCompleted ? "non terminée" : "terminée"}`}
+                />
+                <div className="min-w-0 flex-1">
+                  <p
+                    className={cn(
+                      "text-sm font-medium",
+                      task.isCompleted
+                        ? "line-through text-muted-foreground"
+                        : "text-foreground",
+                    )}
+                  >
+                    {task.title}
+                  </p>
+                  {task.description && (
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {task.description}
+                    </p>
+                  )}
+                  <select
+                    value={task.skillId ?? ""}
                     disabled={isPending}
-                    onChange={() =>
+                    onChange={(event) =>
                       updateTask({
                         applicationId,
                         taskId: task.id,
-                        isCompleted: !task.isCompleted,
+                        skillId: event.target.value || null,
                       })
                     }
-                    className="mt-0.5 accent-primary w-4 h-4 shrink-0"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p
-                      className={cn(
-                        "text-sm font-medium",
-                        task.isCompleted
-                          ? "line-through text-muted-foreground"
-                          : "text-foreground",
-                      )}
-                    >
-                      {task.title}
-                    </p>
-                    {task.description && (
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {task.description}
-                      </p>
-                    )}
-                    <select
-                      value={task.skillId ?? ""}
-                      disabled={isPending}
-                      onClick={(event) => event.stopPropagation()}
-                      onChange={(event) =>
-                        updateTask({
-                          applicationId,
-                          taskId: task.id,
-                          skillId: event.target.value || null,
-                        })
-                      }
-                      className="mt-2 max-w-full px-2 py-1 border border-border rounded-md bg-background text-xs text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                      aria-label={`Compétence liée à ${task.title}`}
-                    >
-                      <option value="">Sans compétence</option>
-                      {skills.map((skill) => (
-                        <option key={skill.id} value={skill.id}>
-                          {skill.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </label>
+                    className="mt-2 max-w-full px-2 py-1 border border-border rounded-md bg-background text-xs text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                    aria-label={`Compétence liée à ${task.title}`}
+                  >
+                    <option value="">Sans compétence</option>
+                    {skills.map((skill) => (
+                      <option key={skill.id} value={skill.id}>
+                        {skill.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <button
                   type="button"
                   onClick={() => deleteTask({ applicationId, taskId: task.id })}
                   className="shrink-0 text-muted-foreground hover:text-destructive transition-colors p-1"
+                  aria-label={`Supprimer ${task.title}`}
                 >
                   <Trash2 size={13} />
                 </button>
