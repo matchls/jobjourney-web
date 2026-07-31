@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { CheckCircle2, Circle, Plus, Trash2 } from "lucide-react";
+import { useApplication } from "@/hooks/use-application";
 import { useCreatePreparationTask } from "@/hooks/use-create-preparation-task";
 import { useDeletePreparationTask } from "@/hooks/use-delete-preparation-task";
 import { useSkills } from "@/hooks/use-skills";
@@ -9,11 +10,10 @@ import {
   type PreparationScoreResult,
 } from "@/lib/preparation-score";
 import { cn } from "@/lib/utils";
-import type { InterviewStep, PreparationTask } from "@/types";
+import type { PreparationTask } from "@/types";
 
 type Props = {
   tasks: PreparationTask[];
-  interviewSteps: InterviewStep[];
   applicationId: string;
 };
 
@@ -110,11 +110,8 @@ function ScoreGauge({ result }: { result: PreparationScoreResult }) {
   );
 }
 
-export function PreparationTasks({
-  tasks,
-  interviewSteps,
-  applicationId,
-}: Props) {
+export function PreparationTasks({ tasks, applicationId }: Props) {
+  const { data: application } = useApplication(applicationId);
   const { mutate: updateTask, isPending, error: updateError } =
     useUpdatePreparationTask();
   const {
@@ -128,7 +125,10 @@ export function PreparationTasks({
   const [newTitle, setNewTitle] = useState("");
   const [newSkillId, setNewSkillId] = useState("");
 
-  const scoreResult = calculatePreparationScore(tasks, interviewSteps);
+  const scoreResult = calculatePreparationScore(
+    tasks,
+    application?.interviewSteps ?? [],
+  );
   const mutationError = updateError ?? createError ?? deleteError ?? skillsError;
 
   return (
