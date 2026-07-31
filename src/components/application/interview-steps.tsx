@@ -7,10 +7,12 @@ import {
   Calendar,
   Trash2,
   Plus,
+  X,
 } from "lucide-react";
 import { useUpdateInterviewStep } from "@/hooks/use-update-interview-step";
 import { useCreateInterviewStep } from "@/hooks/use-create-interview-step";
 import { useDeleteInterviewStep } from "@/hooks/use-delete-interview-step";
+import { useSkills } from "@/hooks/use-skills";
 import type { InterviewStep, InterviewStepType } from "@/types";
 import { useState } from "react";
 
@@ -25,8 +27,6 @@ function formatDate(dateStr: string) {
   return date.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
 }
 
-// <input type="datetime-local"> expects "YYYY-MM-DDTHH:mm" in local time,
-// with no timezone info — this converts an ISO string to that shape.
 function toDatetimeLocalValue(dateStr: string) {
   const date = new Date(dateStr);
   const offsetMs = date.getTimezoneOffset() * 60000;
@@ -45,12 +45,14 @@ export function InterviewSteps({ steps, applicationId }: Props) {
     error: createError,
   } = useCreateInterviewStep();
   const { mutate: deleteStep, error: deleteError } = useDeleteInterviewStep();
-  const mutationError = updateError ?? createError ?? deleteError;
+  const { data: skills = [], error: skillsError } = useSkills();
+  const mutationError = updateError ?? createError ?? deleteError ?? skillsError;
 
   const [showForm, setShowForm] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newType, setNewType] = useState<InterviewStepType>("HR");
   const [newScheduledAt, setNewScheduledAt] = useState("");
+  const [newSkillId, setNewSkillId] = useState("");
 
   const [editingDateId, setEditingDateId] = useState<string | null>(null);
   const [dateValue, setDateValue] = useState("");
@@ -78,6 +80,10 @@ export function InterviewSteps({ steps, applicationId }: Props) {
         const isCancelled = step.status === "CANCELLED";
         const isActive = index === firstPlannedIndex;
         const isFuture = step.status === "PLANNED" && !isActive;
+        const linkedSkills = step.skills ?? [];
+        const availableSkills = skills.filter(
+          (skill) => !linkedSkills.some((linked) => linked.id === skill.id),
+        );
 
         return (
           <div
@@ -91,7 +97,6 @@ export function InterviewSteps({ steps, applicationId }: Props) {
             )}
           >
             <div className="flex items-start gap-4">
-              {/* Icône statut */}
               <div className="shrink-0 mt-0.5">
                 {isCompleted && (
                   <CheckCircle2 size={22} className="text-primary" />
@@ -109,9 +114,7 @@ export function InterviewSteps({ steps, applicationId }: Props) {
                 )}
               </div>
 
-              {/* Contenu */}
               <div className="flex-1 min-w-0">
-                {/* Titre + badge + date */}
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-2">
                     <h3
@@ -156,14 +159,63 @@ export function InterviewSteps({ steps, applicationId }: Props) {
                   )}
                 </div>
 
-                {/* Notes */}
                 {step.notes && (
                   <p className="text-sm text-muted-foreground mt-2 italic">
                     {step.notes}
                   </p>
                 )}
 
-                {/* Questions à poser + Focus révision — étape active */}
+                <div className="flex flex-wrap items-center gap-2 mt-3">
+                  {linkedSkills.map((skill) => (
+                    <button
+                      key={skill.id}
+                      type="button"
+                      disabled={isPending}
+                      onClick={() =>
+                        updateStep({
+                          applicationId,
+                          stepId: step.id,
+                          skillIds: linkedSkills
+                            .filter((linked) => linked.id !== skill.id)
+                            .map((linked) => linked.id),
+                        })
+                      }
+                      className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 bg-secondary text-secondary-foreground rounded-full border border-border disabled:opacity-50"
+                      aria-label={`Retirer ${skill.name}`}
+                    >
+                      {skill.name}
+                      <X size={11} />
+                    </button>
+                  ))}
+                  {availableSkills.length > 0 && (
+                    <select
+                      value=""
+                      disabled={isPending}
+                      onChange={(event) => {
+                        const skillId = event.target.value;
+                        if (!skillId) return;
+                        updateStep({
+                          applicationId,
+                          stepId: step.id,
+                          skillIds: [
+                            ...linkedSkills.map((linked) => linked.id),
+                            skillId,
+                          ],
+                        });
+                      }}
+                      className="px-2 py-1 border border-dashed border-border rounded-md bg-background text-[11px] text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                      aria-label={`Ajouter une compétence à ${step.title}`}
+                    >
+                      <option value="">+ Compétence</option>
+                      {availableSkills.map((skill) => (
+                        <option key={skill.id} value={skill.id}>
+                          {skill.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+
                 {isActive && (step.questionsAsked || step.toReview) && (
                   <div className="grid grid-cols-2 gap-3 mt-3 p-3 bg-background rounded-lg border border-border">
                     {step.questionsAsked && (
@@ -199,7 +251,6 @@ export function InterviewSteps({ steps, applicationId }: Props) {
                   </div>
                 )}
 
-                {/* Questions posées + À réviser — étapes terminées */}
                 {isCompleted && (step.questionsAsked || step.toReview) && (
                   <div className="grid grid-cols-2 gap-4 mt-3 pt-3 border-t border-border">
                     {step.questionsAsked && (
@@ -225,7 +276,6 @@ export function InterviewSteps({ steps, applicationId }: Props) {
                   </div>
                 )}
 
-                {/* Toggle */}
                 {!isFuture && !isCancelled && (
                   <button
                     disabled={isPending}
@@ -247,12 +297,11 @@ export function InterviewSteps({ steps, applicationId }: Props) {
                   </button>
                 )}
 
-                {/* Date d'entretien — étapes à venir (actives ou futures) */}
                 {(isActive || isFuture) &&
                   (editingDateId === step.id ? (
                     <form
-                      onSubmit={(e) => {
-                        e.preventDefault();
+                      onSubmit={(event) => {
+                        event.preventDefault();
                         updateStep(
                           {
                             applicationId,
@@ -270,7 +319,7 @@ export function InterviewSteps({ steps, applicationId }: Props) {
                         type="datetime-local"
                         autoFocus
                         value={dateValue}
-                        onChange={(e) => setDateValue(e.target.value)}
+                        onChange={(event) => setDateValue(event.target.value)}
                         className="px-2 py-1.5 border border-border rounded-md bg-background text-xs focus:outline-none focus:ring-2 focus:ring-ring"
                       />
                       <button
@@ -302,8 +351,6 @@ export function InterviewSteps({ steps, applicationId }: Props) {
                   ))}
               </div>
 
-              {/* Boutons Zoom / Date — étape active uniquement */}
-
               {isActive && (
                 <div className="flex flex-col gap-2 shrink-0">
                   <button className="flex items-center gap-2 text-xs font-semibold bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors whitespace-nowrap">
@@ -331,8 +378,8 @@ export function InterviewSteps({ steps, applicationId }: Props) {
       })}
       {showForm ? (
         <form
-          onSubmit={(e) => {
-            e.preventDefault();
+          onSubmit={(event) => {
+            event.preventDefault();
             createStep(
               {
                 applicationId,
@@ -342,6 +389,7 @@ export function InterviewSteps({ steps, applicationId }: Props) {
                 scheduledAt: newScheduledAt
                   ? new Date(newScheduledAt).toISOString()
                   : undefined,
+                skillIds: newSkillId ? [newSkillId] : undefined,
               },
               {
                 onSuccess: () => {
@@ -349,6 +397,7 @@ export function InterviewSteps({ steps, applicationId }: Props) {
                   setNewTitle("");
                   setNewType("HR");
                   setNewScheduledAt("");
+                  setNewSkillId("");
                 },
               },
             );
@@ -360,24 +409,38 @@ export function InterviewSteps({ steps, applicationId }: Props) {
             className="min-w-0 flex-1 px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             placeholder="Nom de l'étape"
             value={newTitle}
-            onChange={(e) => setNewTitle(e.target.value)}
+            onChange={(event) => setNewTitle(event.target.value)}
             required
           />
           <select
             className="px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             value={newType}
-            onChange={(e) => setNewType(e.target.value as InterviewStepType)}
+            onChange={(event) =>
+              setNewType(event.target.value as InterviewStepType)
+            }
           >
             <option value="HR">RH</option>
             <option value="TECHNICAL">Technique</option>
             <option value="FINAL">Final</option>
             <option value="CUSTOM">Autre</option>
           </select>
+          <select
+            className="px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            value={newSkillId}
+            onChange={(event) => setNewSkillId(event.target.value)}
+          >
+            <option value="">Sans compétence</option>
+            {skills.map((skill) => (
+              <option key={skill.id} value={skill.id}>
+                {skill.name}
+              </option>
+            ))}
+          </select>
           <input
             type="datetime-local"
             className="px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             value={newScheduledAt}
-            onChange={(e) => setNewScheduledAt(e.target.value)}
+            onChange={(event) => setNewScheduledAt(event.target.value)}
           />
           <div className="flex gap-2">
             <button
