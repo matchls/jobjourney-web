@@ -20,6 +20,7 @@ export function SkillsManager() {
   const [newName, setNewName] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   const mutationError =
     createSkill.error ?? updateSkill.error ?? deleteSkill.error;
@@ -84,26 +85,54 @@ export function SkillsManager() {
                 {skill.name}
               </span>
               <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditingId(skill.id);
-                    setEditingName(skill.name);
-                  }}
-                  className="p-1.5 text-muted-foreground hover:text-foreground"
-                  aria-label={`Modifier ${skill.name}`}
-                >
-                  <Pencil size={13} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => deleteSkill.mutate(skill.id)}
-                  disabled={deleteSkill.isPending}
-                  className="p-1.5 text-muted-foreground hover:text-destructive disabled:opacity-50"
-                  aria-label={`Supprimer ${skill.name}`}
-                >
-                  <Trash2 size={13} />
-                </button>
+                {pendingDeleteId === skill.id ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        deleteSkill.mutate(skill.id, {
+                          onSuccess: () => setPendingDeleteId(null),
+                        })
+                      }
+                      disabled={deleteSkill.isPending}
+                      className="p-1.5 text-destructive hover:bg-destructive/10 rounded-md disabled:opacity-50"
+                      aria-label={`Confirmer la suppression de ${skill.name}`}
+                    >
+                      <Check size={13} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPendingDeleteId(null)}
+                      className="p-1.5 text-muted-foreground hover:text-foreground"
+                      aria-label="Annuler la suppression"
+                    >
+                      <X size={13} />
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPendingDeleteId(null);
+                        setEditingId(skill.id);
+                        setEditingName(skill.name);
+                      }}
+                      className="p-1.5 text-muted-foreground hover:text-foreground"
+                      aria-label={`Modifier ${skill.name}`}
+                    >
+                      <Pencil size={13} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPendingDeleteId(skill.id)}
+                      className="p-1.5 text-muted-foreground hover:text-destructive"
+                      aria-label={`Supprimer ${skill.name}`}
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           ),
