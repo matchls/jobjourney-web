@@ -1,26 +1,34 @@
-import { cn } from "@/lib/utils";
-import { useUpdatePreparationTask } from "@/hooks/use-update-preparation-task";
-import type { PreparationTask } from "@/types";
 import { useState } from "react";
-import { Trash2, Plus } from "lucide-react";
+import { CheckCircle2, Circle, Plus, Trash2 } from "lucide-react";
 import { useCreatePreparationTask } from "@/hooks/use-create-preparation-task";
 import { useDeletePreparationTask } from "@/hooks/use-delete-preparation-task";
 import { useSkills } from "@/hooks/use-skills";
+import { useUpdatePreparationTask } from "@/hooks/use-update-preparation-task";
+import {
+  calculatePreparationScore,
+  type PreparationScoreResult,
+} from "@/lib/preparation-score";
+import { cn } from "@/lib/utils";
+import type { InterviewStep, PreparationTask } from "@/types";
 
-type Props = { tasks: PreparationTask[]; applicationId: string };
+type Props = {
+  tasks: PreparationTask[];
+  interviewSteps: InterviewStep[];
+  applicationId: string;
+};
 
-function ScoreGauge({ score }: { score: number }) {
+function ScoreGauge({ result }: { result: PreparationScoreResult }) {
   const label =
-    score >= 80
+    result.score >= 80
       ? "Excellent"
-      : score >= 60
+      : result.score >= 60
         ? "Bon"
-        : score >= 30
+        : result.score >= 30
           ? "En progrès"
           : "À améliorer";
 
   return (
-    <div className="flex flex-col items-center justify-center p-6 bg-card border border-border rounded-xl">
+    <div className="flex flex-col items-center p-6 bg-card border border-border rounded-xl">
       <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-4">
         Score de préparation
       </p>
@@ -43,25 +51,70 @@ function ScoreGauge({ score }: { score: number }) {
             stroke="currentColor"
             strokeWidth="2.5"
             strokeLinecap="round"
-            strokeDasharray={`${score} 100`}
+            strokeDasharray={`${result.score} 100`}
             className="text-primary transition-all duration-500"
           />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-2xl font-bold text-foreground">{score}%</span>
+          <span className="text-2xl font-bold text-foreground">
+            {result.score}%
+          </span>
           <span className="text-[10px] text-muted-foreground">{label}</span>
         </div>
       </div>
-      <p className="text-xs text-muted-foreground text-center mt-3 leading-relaxed">
-        {score === 100
-          ? "Vous êtes prêt !"
-          : "Encore quelques points à réviser pour être prêt à 100%."}
+
+      <div className="w-full mt-5 space-y-2">
+        {result.criteria.map((criterion) => (
+          <div
+            key={criterion.key}
+            className="flex items-center justify-between gap-3 text-xs"
+          >
+            <div className="flex items-center gap-2 min-w-0">
+              {criterion.isComplete ? (
+                <CheckCircle2 size={14} className="text-primary shrink-0" />
+              ) : (
+                <Circle size={14} className="text-muted-foreground shrink-0" />
+              )}
+              <span className="text-foreground truncate">{criterion.label}</span>
+            </div>
+            <span className="font-semibold text-muted-foreground shrink-0">
+              {criterion.earned}/{criterion.maximum} pts
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {result.missing.length === 0 ? (
+        <p className="text-xs text-primary text-center mt-5 font-medium">
+          Vous êtes prêt pour le prochain entretien.
+        </p>
+      ) : (
+        <div className="w-full mt-5 pt-4 border-t border-border">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+            Pour améliorer le score
+          </p>
+          <ul className="space-y-1.5">
+            {result.missing.map((message) => (
+              <li key={message} className="text-xs text-muted-foreground">
+                • {message}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <p className="text-[10px] text-muted-foreground text-center mt-4">
+        Tâches 70 pts · date 15 pts · contexte 15 pts
       </p>
     </div>
   );
 }
 
-export function PreparationTasks({ tasks, applicationId }: Props) {
+export function PreparationTasks({
+  tasks,
+  interviewSteps,
+  applicationId,
+}: Props) {
   const { mutate: updateTask, isPending, error: updateError } =
     useUpdatePreparationTask();
   const {
@@ -75,9 +128,7 @@ export function PreparationTasks({ tasks, applicationId }: Props) {
   const [newTitle, setNewTitle] = useState("");
   const [newSkillId, setNewSkillId] = useState("");
 
-  const completed = tasks.filter((task) => task.isCompleted).length;
-  const score =
-    tasks.length > 0 ? Math.round((completed / tasks.length) * 100) : 0;
+  const scoreResult = calculatePreparationScore(tasks, interviewSteps);
   const mutationError = updateError ?? createError ?? deleteError ?? skillsError;
 
   return (
@@ -213,7 +264,7 @@ export function PreparationTasks({ tasks, applicationId }: Props) {
         </form>
       </div>
 
-      <ScoreGauge score={score} />
+      <ScoreGauge result={scoreResult} />
     </div>
   );
 }
