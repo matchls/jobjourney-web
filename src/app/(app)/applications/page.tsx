@@ -15,6 +15,7 @@ import {
   Eye,
   Pencil,
   Trash2,
+  ArrowUpDown,
 } from "lucide-react";
 import { useApplications } from "@/hooks/use-applications";
 import { useDeleteApplication } from "@/hooks/use-delete-application";
@@ -57,6 +58,61 @@ const STATUS_CONFIG: Record<
     className: "bg-destructive/10 text-destructive",
   },
 };
+
+type SortField = "statusChangedAt" | "appliedAt" | "company" | "status";
+type SortOrder = "asc" | "desc";
+
+const DEFAULT_SORT_FIELD: SortField = "statusChangedAt";
+const DEFAULT_SORT_ORDER: SortOrder = "desc";
+
+const SORT_FIELD_OPTIONS: { value: SortField; label: string }[] = [
+  { value: "statusChangedAt", label: "Dernier changement" },
+  { value: "appliedAt", label: "Date de candidature" },
+  { value: "company", label: "Entreprise" },
+  { value: "status", label: "Statut" },
+];
+
+const DATE_SORT_FIELDS: SortField[] = ["statusChangedAt", "appliedAt"];
+
+function sortOrderLabel(field: SortField, order: SortOrder) {
+  if (DATE_SORT_FIELDS.includes(field)) {
+    return order === "desc" ? "Plus récent d'abord" : "Plus ancien d'abord";
+  }
+  return order === "asc" ? "A → Z" : "Z → A";
+}
+
+function compareApplications(
+  a: Application,
+  b: Application,
+  field: SortField,
+  order: SortOrder,
+) {
+  const direction = order === "asc" ? 1 : -1;
+
+  if (field === "appliedAt") {
+    const aTime = a.appliedAt ? new Date(a.appliedAt).getTime() : null;
+    const bTime = b.appliedAt ? new Date(b.appliedAt).getTime() : null;
+    if (aTime === null && bTime === null) return 0;
+    if (aTime === null) return 1;
+    if (bTime === null) return -1;
+    return (aTime - bTime) * direction;
+  }
+
+  if (field === "statusChangedAt") {
+    const aTime = new Date(a.statusChangedAt ?? a.createdAt).getTime();
+    const bTime = new Date(b.statusChangedAt ?? b.createdAt).getTime();
+    return (aTime - bTime) * direction;
+  }
+
+  if (field === "company") {
+    return a.company.localeCompare(b.company, "fr") * direction;
+  }
+
+  return (
+    (STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status)) *
+    direction
+  );
+}
 
 function stepLabel(type: string, title: string) {
   if (type === "HR") return "RH";
@@ -140,6 +196,8 @@ export default function ApplicationsPage() {
     "ALL",
   );
   const [sourceFilter, setSourceFilter] = useState("ALL");
+  const [sortField, setSortField] = useState<SortField>(DEFAULT_SORT_FIELD);
+  const [sortOrder, setSortOrder] = useState<SortOrder>(DEFAULT_SORT_ORDER);
   const router = useRouter();
   const { mutate: deleteApplication, error: deleteError } =
     useDeleteApplication();
@@ -165,6 +223,10 @@ export default function ApplicationsPage() {
       sourceFilter === "ALL" || app.source === sourceFilter;
     return matchesSearch && matchesStatus && matchesSource;
   });
+
+  const sortedApplications = [...filtered].sort((a, b) =>
+    compareApplications(a, b, sortField, sortOrder),
+  );
 
   const hasActiveFilters =
     query !== "" || statusFilter !== "ALL" || sourceFilter !== "ALL";
@@ -261,6 +323,53 @@ export default function ApplicationsPage() {
           </DropdownMenuContent>
         </DropdownMenu>
 
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="flex items-center gap-2 px-4 py-2 border border-border rounded-lg text-sm font-medium bg-card hover:bg-muted transition-colors whitespace-nowrap">
+              <ArrowUpDown size={14} className="text-muted-foreground" />
+              {
+                SORT_FIELD_OPTIONS.find((option) => option.value === sortField)
+                  ?.label
+              }
+              <ChevronDown size={14} className="text-muted-foreground" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="min-w-48">
+            <DropdownMenuRadioGroup
+              value={sortField}
+              onValueChange={(value) => setSortField(value as SortField)}
+            >
+              {SORT_FIELD_OPTIONS.map((option) => (
+                <DropdownMenuRadioItem key={option.value} value={option.value}>
+                  {option.label}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="flex items-center gap-2 px-4 py-2 border border-border rounded-lg text-sm font-medium bg-card hover:bg-muted transition-colors whitespace-nowrap">
+              {sortOrderLabel(sortField, sortOrder)}
+              <ChevronDown size={14} className="text-muted-foreground" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="min-w-48">
+            <DropdownMenuRadioGroup
+              value={sortOrder}
+              onValueChange={(value) => setSortOrder(value as SortOrder)}
+            >
+              <DropdownMenuRadioItem value="asc">
+                {sortOrderLabel(sortField, "asc")}
+              </DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="desc">
+                {sortOrderLabel(sortField, "desc")}
+              </DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         {hasActiveFilters && (
           <button
             onClick={handleReset}
@@ -275,7 +384,7 @@ export default function ApplicationsPage() {
       {/* Liste */}
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Chargement...</p>
-      ) : filtered.length === 0 ? (
+      ) : sortedApplications.length === 0 ? (
         <div className="p-12 border border-dashed border-border rounded-xl flex flex-col items-center gap-3 text-center">
           <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center">
             <Search size={20} className="text-muted-foreground" />
@@ -303,7 +412,7 @@ export default function ApplicationsPage() {
         </div>
       ) : (
         <div className="flex flex-col gap-3">
-          {filtered.map((app) => {
+          {sortedApplications.map((app) => {
             const status = STATUS_CONFIG[app.status];
             const appliedDate = app.appliedAt
               ? new Date(app.appliedAt).toLocaleDateString("fr-FR", {
