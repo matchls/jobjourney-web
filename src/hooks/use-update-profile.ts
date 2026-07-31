@@ -4,6 +4,7 @@ import type { User } from "@/types";
 
 type UpdateProfileInput = {
   name?: string;
+  defaultInterviewSteps?: string[];
 };
 
 export function useUpdateProfile() {

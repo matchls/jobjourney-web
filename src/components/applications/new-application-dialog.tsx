@@ -11,6 +11,12 @@ import {
 } from "@/components/ui/dialog";
 import { useCreateApplication } from "@/hooks/use-create-application";
 import type { CreateApplicationInput } from "@/hooks/use-create-application";
+import { useCreateInterviewStep } from "@/hooks/use-create-interview-step";
+import { useAuth } from "@/lib/auth";
+import {
+  getStepOccurrenceTitle,
+  normalizeDefaultInterviewSteps,
+} from "@/lib/interview-steps";
 import { Plus } from "lucide-react";
 import { ApplicationStatus } from "@/types";
 
@@ -42,12 +48,15 @@ export function NewApplicationDialog({
   };
   const [form, setForm] = useState(emptyForm);
 
-  const { mutate, isPending, error } = useCreateApplication();
+  const { user } = useAuth();
+  const { mutateAsync: createApplication, isPending, error } =
+    useCreateApplication();
+  const { mutateAsync: createInterviewStep } = useCreateInterviewStep();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    mutate(
-      {
+    try {
+      const application = await createApplication({
         company: form.company,
         position: form.position,
         source: form.source || undefined,
@@ -63,18 +72,35 @@ export function NewApplicationDialog({
         contactRole: form.contactRole || undefined,
         contactEmail: form.contactEmail || undefined,
         referralNote: form.referralNote || undefined,
-      },
-      {
-        onSuccess: () => {
-          // Programmatically closing the dialog doesn't trigger Radix's
-          // onOpenChange, so the form reset below (which normally runs on
-          // close) has to happen here too — otherwise reopening the dialog
-          // shows the previous submission's values instead of a blank form.
-          setOpen(false);
-          setForm({ ...emptyForm, status: defaultStatus ?? "TARGETED" });
-        },
-      },
-    );
+      });
+
+      // Applique le processus d'entretien par défaut configuré dans les
+      // paramètres. Best-effort : si une étape échoue à se créer, la
+      // candidature (déjà créée) reste valable, on ne bloque pas l'utilisateur.
+      const defaultSteps = normalizeDefaultInterviewSteps(
+        user?.defaultInterviewSteps,
+      );
+      await Promise.allSettled(
+        defaultSteps.map((type, index) =>
+          createInterviewStep({
+            applicationId: application.id,
+            title: getStepOccurrenceTitle(defaultSteps, index),
+            type,
+            order: index,
+          }),
+        ),
+      );
+
+      // Programmatically closing the dialog doesn't trigger Radix's
+      // onOpenChange, so the form reset below (which normally runs on
+      // close) has to happen here too — otherwise reopening the dialog
+      // shows the previous submission's values instead of a blank form.
+      setOpen(false);
+      setForm({ ...emptyForm, status: defaultStatus ?? "TARGETED" });
+    } catch {
+      // L'erreur de création de candidature est déjà exposée via `error`
+      // (état de la mutation) — on n'y touche pas ici.
+    }
   };
 
   return (
