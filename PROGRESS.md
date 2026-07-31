@@ -99,10 +99,33 @@
 
 - (rien)
 
+## ⛔ Bloqué — dépendance backend
+
+### Tags de compétences exploitables (V1.1, issue #9)
+
+Investigation faite le 2026-07-31 sur `jobjourney-api` (branche `main` à jour, commit `ae0dc55`) : **l'API skills n'existe pas**, alors que le schéma Prisma modélise déjà la donnée. Aucun code métier frontend écrit sur `feature/usable-skills-tags` pour éviter de bricoler un faux stockage local — voir la PR de l'issue #9 pour le détail. Ce qui existe déjà côté backend vs ce qui manque :
+
+**Déjà en place (schéma uniquement, `prisma/schema.prisma`) :**
+- `model Skill { id, name, userId, interviewSteps InterviewStep[], preparationTasks PreparationTask[] }`
+- Relation many-to-many `InterviewStep.skills <-> Skill.interviewSteps`
+- `PreparationTask.skillId` (FK optionnelle vers `Skill`)
+
+**Manquant côté backend (bloque tout le frontend) :**
+1. Aucune route `/skills` montée dans `src/app.ts` — pas de `GET/POST/PATCH/DELETE /skills`, pas de controller/service/validator dédiés (à créer sur le modèle de `user.controller.ts` : `select: { id, name, userId, createdAt, updatedAt }` filtré par `userId` du token).
+2. `interview-step.validator.ts` n'a aucun champ `skillIds` — impossible de rattacher une compétence à une étape d'entretien (ni en création ni en modification). `interview-step.service.ts` ne fait jamais de `connect`/`set` sur `skills`, et `getInterviewSteps`/`getApplicationById` n'incluent jamais `skills` dans la requête Prisma (`include`), donc même si la relation existait en DB elle ne serait pas renvoyée par l'API.
+3. `preparation-task.validator.ts` accepte déjà `skillId` en création/modification (`z.string().optional()`), mais c'est inexploitable en pratique : `application.service.ts#getApplicationById` récupère `preparationTasks` sans `include: { skill: true }`, donc le frontend ne reçoit que l'id brut, jamais le nom de la compétence — et sans endpoint `/skills`, impossible de résoudre cet id côté client.
+
+**Travail backend nécessaire avant de reprendre le frontend :**
+- Créer `skill.routes.ts` + `skill.controller.ts` + `skill.service.ts` (+ validator zod) : CRUD complet scoping sur `userId`, monté sur `/skills` dans `app.ts`.
+- Étendre `interview-step.validator.ts`/`.service.ts` pour accepter `skillIds: string[]` en création/modification et faire `connect`/`set` sur la relation `skills`.
+- Ajouter `include: { skills: true }` sur les requêtes Prisma d'`interview-step.service.ts` qui retournent des steps.
+- Ajouter `include: { skill: true }` sur `preparationTasks` dans `application.service.ts#getApplicationById` (et partout où une tâche de préparation est renvoyée) pour exposer le nom de la compétence liée.
+
+Une fois ces 4 points livrés côté `jobjourney-api`, le frontend pourra implémenter l'issue #9 sans contournement : afficher/créer/modifier/supprimer des compétences dans Settings, les rattacher à une étape d'entretien et à une tâche de préparation.
+
 ## 🔮 V1.1 (après V1 déployée)
 
 - Google OAuth
-- Tags de compétences dans Settings
 - Score de préparation amélioré
 - Analytics enrichis
 - Bouton "Partager" fonctionnel
