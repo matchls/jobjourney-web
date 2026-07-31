@@ -7,6 +7,7 @@ type UpdateInput = {
   stepId: string;
   status?: InterviewStepStatus;
   scheduledAt?: string;
+  skillIds?: string[];
 };
 
 export function useUpdateInterviewStep() {
@@ -22,9 +23,6 @@ export function useUpdateInterviewStep() {
       queryClient.invalidateQueries({
         queryKey: ["applications", applicationId],
       });
-      // Completing/uncompleting a step or rescheduling it changes the
-      // dashboard's completed counter and upcoming interviews list, so
-      // that query needs to be refetched too.
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
   });
