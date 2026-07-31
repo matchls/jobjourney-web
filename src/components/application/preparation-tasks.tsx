@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Trash2, Plus } from "lucide-react";
 import { useCreatePreparationTask } from "@/hooks/use-create-preparation-task";
 import { useDeletePreparationTask } from "@/hooks/use-delete-preparation-task";
+import { useSkills } from "@/hooks/use-skills";
 
 type Props = { tasks: PreparationTask[]; applicationId: string };
 
@@ -61,23 +62,35 @@ function ScoreGauge({ score }: { score: number }) {
 }
 
 export function PreparationTasks({ tasks, applicationId }: Props) {
-  const { mutate: updateTask, isPending } = useUpdatePreparationTask();
-  const { mutate: createTask, isPending: isCreating } =
-    useCreatePreparationTask();
-  const { mutate: deleteTask } = useDeletePreparationTask();
+  const { mutate: updateTask, isPending, error: updateError } =
+    useUpdatePreparationTask();
+  const {
+    mutate: createTask,
+    isPending: isCreating,
+    error: createError,
+  } = useCreatePreparationTask();
+  const { mutate: deleteTask, error: deleteError } =
+    useDeletePreparationTask();
+  const { data: skills = [], error: skillsError } = useSkills();
   const [newTitle, setNewTitle] = useState("");
+  const [newSkillId, setNewSkillId] = useState("");
 
   const completed = tasks.filter((t) => t.isCompleted).length;
   const score =
     tasks.length > 0 ? Math.round((completed / tasks.length) * 100) : 0;
+  const mutationError = updateError ?? createError ?? deleteError ?? skillsError;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      {/* Checklist */}
       <div className="bg-card border border-border rounded-xl p-5">
         <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-4">
           Checklist de préparation
         </p>
+        {mutationError && (
+          <p className="text-xs text-destructive mb-3">
+            {mutationError.message}
+          </p>
+        )}
         {tasks.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             Aucune tâche de préparation.
@@ -86,7 +99,7 @@ export function PreparationTasks({ tasks, applicationId }: Props) {
           <div className="flex flex-col gap-3">
             {tasks.map((task) => (
               <div key={task.id} className="flex items-start gap-3">
-                <label className="flex items-start gap-3 cursor-pointer flex-1">
+                <label className="flex items-start gap-3 cursor-pointer flex-1 min-w-0">
                   <input
                     type="checkbox"
                     checked={task.isCompleted}
@@ -100,7 +113,7 @@ export function PreparationTasks({ tasks, applicationId }: Props) {
                     }
                     className="mt-0.5 accent-primary w-4 h-4 shrink-0"
                   />
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <p
                       className={cn(
                         "text-sm font-medium",
@@ -116,6 +129,27 @@ export function PreparationTasks({ tasks, applicationId }: Props) {
                         {task.description}
                       </p>
                     )}
+                    <select
+                      value={task.skillId ?? ""}
+                      disabled={isPending}
+                      onClick={(event) => event.stopPropagation()}
+                      onChange={(event) =>
+                        updateTask({
+                          applicationId,
+                          taskId: task.id,
+                          skillId: event.target.value || null,
+                        })
+                      }
+                      className="mt-2 max-w-full px-2 py-1 border border-border rounded-md bg-background text-xs text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                      aria-label={`Compétence liée à ${task.title}`}
+                    >
+                      <option value="">Sans compétence</option>
+                      {skills.map((skill) => (
+                        <option key={skill.id} value={skill.id}>
+                          {skill.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </label>
                 <button
@@ -129,35 +163,57 @@ export function PreparationTasks({ tasks, applicationId }: Props) {
             ))}
           </div>
         )}
-        {/* Formulaire ajout — dans la card */}
         <form
-          onSubmit={(e) => {
-            e.preventDefault();
+          onSubmit={(event) => {
+            event.preventDefault();
             createTask(
-              { applicationId, title: newTitle, order: tasks.length },
-              { onSuccess: () => setNewTitle("") },
+              {
+                applicationId,
+                title: newTitle,
+                order: tasks.length,
+                skillId: newSkillId || undefined,
+              },
+              {
+                onSuccess: () => {
+                  setNewTitle("");
+                  setNewSkillId("");
+                },
+              },
             );
           }}
-          className="flex flex-col sm:flex-row gap-2 mt-4"
+          className="flex flex-col gap-2 mt-4"
         >
-          <input
-            className="min-w-0 w-full sm:flex-1 px-3 py-1.5 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            placeholder="Nouvelle tâche..."
-            value={newTitle}
-            onChange={(e) => setNewTitle(e.target.value)}
-            required
-          />
-          <button
-            type="submit"
-            disabled={isCreating || !newTitle}
-            className="shrink-0 px-3 py-1.5 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 sm:w-auto w-full flex items-center justify-center"
+          <div className="flex flex-col sm:flex-row gap-2">
+            <input
+              className="min-w-0 w-full sm:flex-1 px-3 py-1.5 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              placeholder="Nouvelle tâche..."
+              value={newTitle}
+              onChange={(event) => setNewTitle(event.target.value)}
+              required
+            />
+            <button
+              type="submit"
+              disabled={isCreating || !newTitle}
+              className="shrink-0 px-3 py-1.5 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 sm:w-auto w-full flex items-center justify-center"
+            >
+              <Plus size={14} />
+            </button>
+          </div>
+          <select
+            value={newSkillId}
+            onChange={(event) => setNewSkillId(event.target.value)}
+            className="w-full px-3 py-1.5 border border-border rounded-md bg-background text-xs text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
           >
-            <Plus size={14} />
-          </button>
+            <option value="">Sans compétence associée</option>
+            {skills.map((skill) => (
+              <option key={skill.id} value={skill.id}>
+                {skill.name}
+              </option>
+            ))}
+          </select>
         </form>
       </div>
 
-      {/* Score */}
       <ScoreGauge score={score} />
     </div>
   );
