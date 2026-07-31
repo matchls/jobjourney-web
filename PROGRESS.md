@@ -38,6 +38,12 @@
   - `appliedAt` absent → toujours trié en dernier, quel que soit le sens (évite qu'une candidature sans date de candidature remonte en tête en tri croissant)
   - Appliqué après les filtres existants (recherche/statut/source), sur une copie du tableau filtré (`[...filtered].sort(...)`)
   - Deux dropdowns cohérents avec les filtres existants ("Trier par" + "Ordre"), tri actif affiché directement dans les boutons
+- Processus d'entretien par défaut dans Settings (V1.1, issue #8) :
+  - Backend déjà prêt : `User.defaultInterviewSteps` (`GET /auth/me`, `GET`/`PATCH /users/me`), défaut `["HR","TECHNICAL","FINAL"]` — aucun changement backend nécessaire
+  - `src/lib/interview-steps.ts` — helper partagé : normalisation (fallback RH → Technique → Final si vide/invalide), libellés FR, titres générés, gestion des doublons ("Technique" → "Technique 2")
+  - Section Settings existante rendue dynamique (chips ajout/suppression RH/Technique/Final/Autre, doublons autorisés pour un 2e tour technique) + `use-update-profile.ts` étendu avec `defaultInterviewSteps`
+  - `new-application-dialog.tsx` : après création de la candidature, crée automatiquement les étapes du processus par défaut de l'utilisateur (`POST /applications/:id/interview-steps` en boucle, best-effort via `Promise.allSettled` — un échec d'étape ne bloque pas la candidature déjà créée)
+  - Aucun impact sur les candidatures existantes (logique uniquement au moment de la création)
 
 ## ⏭️ Plan V1 — Fonctionnalités manquantes
 
@@ -97,7 +103,6 @@
 
 - Google OAuth
 - Tags de compétences dans Settings
-- Processus d'entretien par défaut dans Settings
 - Score de préparation amélioré
 - Analytics enrichis
 - Bouton "Partager" fonctionnel

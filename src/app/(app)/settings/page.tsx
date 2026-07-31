@@ -13,8 +13,22 @@ import {
   LogOut,
   Trash2,
   Plus,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { InterviewStepType } from "@/types";
+import {
+  INTERVIEW_STEP_TYPE_LABELS,
+  getStepOccurrenceLabel,
+  normalizeDefaultInterviewSteps,
+} from "@/lib/interview-steps";
+
+const INTERVIEW_STEP_TYPE_OPTIONS: InterviewStepType[] = [
+  "HR",
+  "TECHNICAL",
+  "FINAL",
+  "CUSTOM",
+];
 
 const SKILLS = [
   "React",
@@ -81,14 +95,98 @@ function ProfileForm({
   );
 }
 
+function DefaultInterviewStepsForm({
+  defaultSteps,
+  onCancel,
+  onSuccess,
+}: {
+  defaultSteps: InterviewStepType[];
+  onCancel: () => void;
+  onSuccess: () => void;
+}) {
+  const { mutate: updateProfile, isPending, error } = useUpdateProfile();
+  const [steps, setSteps] = useState<InterviewStepType[]>(defaultSteps);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateProfile({ defaultInterviewSteps: steps }, { onSuccess });
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4 mt-1">
+      <div className="flex items-center gap-2 flex-wrap min-h-8">
+        {steps.length === 0 && (
+          <p className="text-xs text-muted-foreground">
+            {
+              "Aucune étape : le parcours par défaut (RH → Technique → Final) sera utilisé."
+            }
+          </p>
+        )}
+        {steps.map((type, index) => (
+          <span
+            key={index}
+            className="flex items-center gap-1.5 text-xs font-semibold border border-border rounded-lg pl-3 pr-1.5 py-1.5 bg-background"
+          >
+            {getStepOccurrenceLabel(steps, index)}
+            <button
+              type="button"
+              onClick={() =>
+                setSteps((prev) => prev.filter((_, i) => i !== index))
+              }
+              className="text-muted-foreground hover:text-destructive transition-colors"
+            >
+              <X size={12} />
+            </button>
+          </span>
+        ))}
+      </div>
+      <div className="flex items-center gap-2 flex-wrap">
+        {INTERVIEW_STEP_TYPE_OPTIONS.map((type) => (
+          <button
+            key={type}
+            type="button"
+            onClick={() => setSteps((prev) => [...prev, type])}
+            className="flex items-center gap-1 text-xs font-semibold border border-dashed border-border rounded-lg px-3 py-1.5 text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+          >
+            <Plus size={12} />
+            {INTERVIEW_STEP_TYPE_LABELS[type]}
+          </button>
+        ))}
+      </div>
+      {error && <p className="text-xs text-destructive">{error.message}</p>}
+      <div className="flex gap-2">
+        <button
+          type="submit"
+          disabled={isPending}
+          className="text-xs font-semibold bg-primary text-primary-foreground rounded-lg px-4 py-2 hover:bg-primary/90 transition-colors"
+        >
+          {isPending ? "Enregistrement..." : "Enregistrer"}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="text-xs font-semibold border border-border rounded-lg px-4 py-2 hover:bg-muted transition-colors"
+        >
+          Annuler
+        </button>
+      </div>
+    </form>
+  );
+}
+
 export default function SettingsPage() {
   const { user, isLoading, logout } = useAuth();
   const [editMode, setEditMode] = useState(false);
+  const [editingSteps, setEditingSteps] = useState(false);
   const [notifEnabled, setNotifEnabled] = useState(true);
 
   if (isLoading || !user) {
     return <p className="text-sm text-muted-foreground">Chargement...</p>;
   }
+
+  const defaultInterviewSteps = normalizeDefaultInterviewSteps(
+    user.defaultInterviewSteps,
+  );
 
   const initials = user.name
     ? user.name
@@ -216,24 +314,37 @@ export default function SettingsPage() {
               "Ces étapes seront appliquées automatiquement à chaque nouvelle candidature que vous créez."
             }
           </p>
-          <div className="flex items-center gap-2 flex-wrap">
-            {["RH", "Technique", "Final"].map((step, i, arr) => (
-              <div key={step} className="flex items-center gap-2">
-                <span className="text-xs font-semibold border border-border rounded-lg px-3 py-1.5 bg-background">
-                  {step}
-                </span>
-                {i < arr.length - 1 && (
-                  <ChevronRight size={14} className="text-muted-foreground" />
-                )}
+          {editingSteps ? (
+            <DefaultInterviewStepsForm
+              defaultSteps={defaultInterviewSteps}
+              onCancel={() => setEditingSteps(false)}
+              onSuccess={() => setEditingSteps(false)}
+            />
+          ) : (
+            <>
+              <div className="flex items-center gap-2 flex-wrap">
+                {defaultInterviewSteps.map((type, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <span className="text-xs font-semibold border border-border rounded-lg px-3 py-1.5 bg-background">
+                      {getStepOccurrenceLabel(defaultInterviewSteps, i)}
+                    </span>
+                    {i < defaultInterviewSteps.length - 1 && (
+                      <ChevronRight
+                        size={14}
+                        className="text-muted-foreground"
+                      />
+                    )}
+                  </div>
+                ))}
               </div>
-            ))}
-            <button className="w-7 h-7 flex items-center justify-center border border-dashed border-border rounded-lg text-muted-foreground hover:border-primary hover:text-primary transition-colors">
-              <Plus size={14} />
-            </button>
-          </div>
-          <button className="text-xs font-semibold text-primary hover:underline text-left w-fit">
-            {"Modifier les étapes par défaut →"}
-          </button>
+              <button
+                onClick={() => setEditingSteps(true)}
+                className="text-xs font-semibold text-primary hover:underline text-left w-fit"
+              >
+                {"Modifier les étapes par défaut →"}
+              </button>
+            </>
+          )}
         </div>
       </div>
 
