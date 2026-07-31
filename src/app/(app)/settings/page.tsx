@@ -1,42 +1,34 @@
 "use client";
 
 import { useState } from "react";
-import { useAuth } from "@/lib/auth";
-import { useUpdateProfile } from "@/hooks/use-update-profile";
 import {
-  SlidersHorizontal,
-  Shield,
-  Tag,
-  ListChecks,
   ChevronRight,
   Download,
+  ListChecks,
   LogOut,
-  Trash2,
   Plus,
+  Shield,
+  SlidersHorizontal,
+  Tag,
+  Trash2,
   X,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import type { InterviewStepType } from "@/types";
+import { SkillsManager } from "@/components/skills/skills-manager";
+import { useUpdateProfile } from "@/hooks/use-update-profile";
+import { useAuth } from "@/lib/auth";
 import {
   INTERVIEW_STEP_TYPE_LABELS,
   getStepOccurrenceLabel,
   normalizeDefaultInterviewSteps,
 } from "@/lib/interview-steps";
+import { cn } from "@/lib/utils";
+import type { InterviewStepType } from "@/types";
 
 const INTERVIEW_STEP_TYPE_OPTIONS: InterviewStepType[] = [
   "HR",
   "TECHNICAL",
   "FINAL",
   "CUSTOM",
-];
-
-const SKILLS = [
-  "React",
-  "TypeScript",
-  "Node.js",
-  "SQL",
-  "Docker",
-  "System Design",
 ];
 
 const inputClass =
@@ -54,14 +46,12 @@ function ProfileForm({
   const { mutate: updateProfile, isPending } = useUpdateProfile();
   const [name, setName] = useState(defaultName);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    updateProfile({ name: name || undefined }, { onSuccess });
-  };
-
   return (
     <form
-      onSubmit={handleSubmit}
+      onSubmit={(event) => {
+        event.preventDefault();
+        updateProfile({ name: name || undefined }, { onSuccess });
+      }}
       className="flex flex-col gap-3 mt-4 pt-4 border-t border-border"
     >
       <div className="space-y-1">
@@ -71,7 +61,7 @@ function ProfileForm({
         <input
           className={inputClass}
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(event) => setName(event.target.value)}
           placeholder="Votre prénom"
         />
       </div>
@@ -107,33 +97,36 @@ function DefaultInterviewStepsForm({
   const { mutate: updateProfile, isPending, error } = useUpdateProfile();
   const [steps, setSteps] = useState<InterviewStepType[]>(defaultSteps);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    updateProfile({ defaultInterviewSteps: steps }, { onSuccess });
-  };
-
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4 mt-1">
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        updateProfile({ defaultInterviewSteps: steps }, { onSuccess });
+      }}
+      className="flex flex-col gap-4 mt-1"
+    >
       <div className="flex items-center gap-2 flex-wrap min-h-8">
         {steps.length === 0 && (
           <p className="text-xs text-muted-foreground">
-            {
-              "Aucune étape : le parcours par défaut (RH → Technique → Final) sera utilisé."
-            }
+            Aucune étape : le parcours par défaut (RH → Technique → Final)
+            sera utilisé.
           </p>
         )}
         {steps.map((type, index) => (
           <span
-            key={index}
+            key={`${type}-${index}`}
             className="flex items-center gap-1.5 text-xs font-semibold border border-border rounded-lg pl-3 pr-1.5 py-1.5 bg-background"
           >
             {getStepOccurrenceLabel(steps, index)}
             <button
               type="button"
               onClick={() =>
-                setSteps((prev) => prev.filter((_, i) => i !== index))
+                setSteps((current) =>
+                  current.filter((_, stepIndex) => stepIndex !== index),
+                )
               }
               className="text-muted-foreground hover:text-destructive transition-colors"
+              aria-label={`Retirer ${getStepOccurrenceLabel(steps, index)}`}
             >
               <X size={12} />
             </button>
@@ -145,7 +138,7 @@ function DefaultInterviewStepsForm({
           <button
             key={type}
             type="button"
-            onClick={() => setSteps((prev) => [...prev, type])}
+            onClick={() => setSteps((current) => [...current, type])}
             className="flex items-center gap-1 text-xs font-semibold border border-dashed border-border rounded-lg px-3 py-1.5 text-muted-foreground hover:border-primary hover:text-primary transition-colors"
           >
             <Plus size={12} />
@@ -187,12 +180,11 @@ export default function SettingsPage() {
   const defaultInterviewSteps = normalizeDefaultInterviewSteps(
     user.defaultInterviewSteps,
   );
-
   const initials = user.name
     ? user.name
         .split(" ")
         .filter(Boolean)
-        .map((n) => n[0])
+        .map((name) => name[0])
         .join("")
         .slice(0, 2)
         .toUpperCase()
@@ -202,7 +194,6 @@ export default function SettingsPage() {
     <div className="flex flex-col gap-6 w-[80%] m-auto">
       <h1 className="text-2xl font-bold tracking-tight">Paramètres</h1>
 
-      {/* Profil */}
       <div className="bg-card border border-border rounded-xl p-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -237,8 +228,7 @@ export default function SettingsPage() {
         )}
       </div>
 
-      {/* Préférences */}
-      <div className="flex flex-col gap-3">
+      <section className="flex flex-col gap-3">
         <div className="flex items-center gap-2">
           <SlidersHorizontal size={16} className="text-primary" />
           <h2 className="text-sm font-semibold text-foreground">Préférences</h2>
@@ -247,10 +237,10 @@ export default function SettingsPage() {
           <div className="flex items-center justify-between p-4 border-b border-border">
             <div>
               <p className="text-sm font-medium text-foreground">
-                {"Langue de l'interface"}
+                Langue de l&apos;interface
               </p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                {"Choisissez votre langue préférée pour l'application."}
+                Choisissez votre langue préférée pour l&apos;application.
               </p>
             </div>
             <button className="text-xs font-semibold border border-border rounded-lg px-3 py-1.5 hover:bg-muted transition-colors">
@@ -279,15 +269,16 @@ export default function SettingsPage() {
                 Notifications Email
               </p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                {"Recevez des rappels pour vos entretiens à venir."}
+                Recevez des rappels pour vos entretiens à venir.
               </p>
             </div>
             <button
-              onClick={() => setNotifEnabled(!notifEnabled)}
+              onClick={() => setNotifEnabled((enabled) => !enabled)}
               className={cn(
                 "relative w-10 h-6 rounded-full transition-colors shrink-0",
                 notifEnabled ? "bg-primary" : "bg-muted",
               )}
+              aria-label="Activer ou désactiver les notifications email"
             >
               <span
                 className={cn(
@@ -298,21 +289,19 @@ export default function SettingsPage() {
             </button>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Processus d'entretien */}
-      <div className="flex flex-col gap-3">
+      <section className="flex flex-col gap-3">
         <div className="flex items-center gap-2">
           <ListChecks size={16} className="text-primary" />
           <h2 className="text-sm font-semibold text-foreground">
-            {"Processus d'entretien par défaut"}
+            Processus d&apos;entretien par défaut
           </h2>
         </div>
         <div className="bg-card border border-border rounded-xl p-5 flex flex-col gap-4">
           <p className="text-xs text-muted-foreground">
-            {
-              "Ces étapes seront appliquées automatiquement à chaque nouvelle candidature que vous créez."
-            }
+            Ces étapes seront appliquées automatiquement à chaque nouvelle
+            candidature que vous créez.
           </p>
           {editingSteps ? (
             <DefaultInterviewStepsForm
@@ -323,12 +312,12 @@ export default function SettingsPage() {
           ) : (
             <>
               <div className="flex items-center gap-2 flex-wrap">
-                {defaultInterviewSteps.map((type, i) => (
-                  <div key={i} className="flex items-center gap-2">
+                {defaultInterviewSteps.map((type, index) => (
+                  <div key={`${type}-${index}`} className="flex items-center gap-2">
                     <span className="text-xs font-semibold border border-border rounded-lg px-3 py-1.5 bg-background">
-                      {getStepOccurrenceLabel(defaultInterviewSteps, i)}
+                      {getStepOccurrenceLabel(defaultInterviewSteps, index)}
                     </span>
-                    {i < defaultInterviewSteps.length - 1 && (
+                    {index < defaultInterviewSteps.length - 1 && (
                       <ChevronRight
                         size={14}
                         className="text-muted-foreground"
@@ -341,40 +330,26 @@ export default function SettingsPage() {
                 onClick={() => setEditingSteps(true)}
                 className="text-xs font-semibold text-primary hover:underline text-left w-fit"
               >
-                {"Modifier les étapes par défaut →"}
+                Modifier les étapes par défaut →
               </button>
             </>
           )}
         </div>
-      </div>
+      </section>
 
-      {/* Tags de compétences */}
-      <div className="flex flex-col gap-3">
+      <section className="flex flex-col gap-3">
         <div className="flex items-center gap-2">
           <Tag size={16} className="text-primary" />
           <h2 className="text-sm font-semibold text-foreground">
             Tags de compétences
           </h2>
         </div>
-        <div className="bg-card border border-border rounded-xl p-5 flex flex-col gap-4">
-          <div className="flex flex-wrap gap-2">
-            {SKILLS.map((skill) => (
-              <span
-                key={skill}
-                className="text-xs font-medium px-3 py-1.5 bg-secondary text-secondary-foreground rounded-full border border-border"
-              >
-                {skill}
-              </span>
-            ))}
-          </div>
-          <button className="text-xs font-semibold border border-border rounded-lg px-4 py-2 w-fit hover:bg-muted transition-colors">
-            Gérer les tags
-          </button>
+        <div className="bg-card border border-border rounded-xl p-5">
+          <SkillsManager />
         </div>
-      </div>
+      </section>
 
-      {/* Sécurité */}
-      <div className="flex flex-col gap-3">
+      <section className="flex flex-col gap-3">
         <div className="flex items-center gap-2">
           <Shield size={16} className="text-primary" />
           <h2 className="text-sm font-semibold text-foreground">Sécurité</h2>
@@ -386,7 +361,7 @@ export default function SettingsPage() {
                 Mot de passe
               </p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                {"Dernière modification il y a 3 mois."}
+                Dernière modification il y a 3 mois.
               </p>
             </div>
             <button className="text-xs font-semibold text-primary hover:underline">
@@ -398,7 +373,9 @@ export default function SettingsPage() {
               <p className="text-sm font-medium text-foreground">
                 Compte Google
               </p>
-              <p className="text-xs text-muted-foreground mt-0.5">{`Connecté en tant que ${user.email}`}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Connecté en tant que {user.email}
+              </p>
             </div>
             <button className="text-xs font-semibold text-destructive hover:underline">
               Déconnecter
@@ -410,7 +387,7 @@ export default function SettingsPage() {
                 Sessions actives
               </p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                {"Vous êtes connecté sur plusieurs appareils."}
+                Vous êtes connecté sur plusieurs appareils.
               </p>
             </div>
             <button className="text-xs font-semibold text-primary hover:underline">
@@ -418,9 +395,8 @@ export default function SettingsPage() {
             </button>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Actions */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <button className="w-full flex items-center justify-between p-4 border-b border-border hover:bg-muted/50 transition-colors text-left">
           <div className="flex items-center gap-3">
@@ -430,7 +406,7 @@ export default function SettingsPage() {
                 Exporter mes données
               </p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                {"Téléchargez toutes vos candidatures au format JSON ou CSV."}
+                Téléchargez toutes vos candidatures au format JSON ou CSV.
               </p>
             </div>
           </div>
@@ -447,7 +423,7 @@ export default function SettingsPage() {
                 Se déconnecter
               </p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                {"Mettre fin à votre session actuelle."}
+                Mettre fin à votre session actuelle.
               </p>
             </div>
           </div>
@@ -461,7 +437,7 @@ export default function SettingsPage() {
                 Supprimer le compte
               </p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                {"Supprimer définitivement votre compte et toutes ses données."}
+                Supprimer définitivement votre compte et toutes ses données.
               </p>
             </div>
           </div>

@@ -6,6 +6,7 @@ export type CreatePreparationTaskInput = {
   applicationId: string;
   title: string;
   order: number;
+  skillId?: string;
 };
 
 export function useCreatePreparationTask() {

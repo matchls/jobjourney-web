@@ -4,17 +4,18 @@ import { apiClient } from "@/lib/api";
 type UpdateInput = {
   applicationId: string;
   taskId: string;
-  isCompleted: boolean;
+  isCompleted?: boolean;
+  skillId?: string | null;
 };
 
 export function useUpdatePreparationTask() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ applicationId, taskId, isCompleted }: UpdateInput) =>
+    mutationFn: ({ applicationId, taskId, ...data }: UpdateInput) =>
       apiClient.patch(
         `/applications/${applicationId}/preparation-tasks/${taskId}`,
-        { isCompleted },
+        data,
       ),
     onSuccess: (_, { applicationId }) => {
       queryClient.invalidateQueries({

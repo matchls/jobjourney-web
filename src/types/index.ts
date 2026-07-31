@@ -54,6 +54,7 @@ export type PreparationTask = {
   order: number;
   applicationId: string;
   skillId: string | null;
+  skill: Skill | null;
   createdAt: string;
   updatedAt: string;
 };
