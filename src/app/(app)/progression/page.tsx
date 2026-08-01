@@ -1,14 +1,13 @@
 "use client";
 
-import { useApplications } from "@/hooks/use-applications";
+import { useProgression } from "@/hooks/use-progression";
 import {
   TrendingUp,
+  FileText,
+  CheckCircle2,
   BookOpen,
-  Clock,
-  Star,
   Lightbulb,
   Flame,
-  CheckCircle2,
   PlayCircle,
   Calendar,
 } from "lucide-react";
@@ -20,15 +19,6 @@ type JournalItem = {
   progress?: number;
   date: string;
 };
-
-const THEMES = [
-  { label: "React", score: 90 },
-  { label: "TypeScript", score: 75 },
-  { label: "Node.js", score: 60 },
-  { label: "SQL", score: 50 },
-  { label: "Docker", score: 30 },
-  { label: "Cloud", score: 15 },
-];
 
 const LEVIERS = [
   {
@@ -68,110 +58,187 @@ const JOURNAL: JournalItem[] = [
   { label: "Techniques de Négociation", status: "planned", date: "Prévu" },
 ];
 
-const PERF_POINTS = [20, 30, 40, 55, 50, 65, 70, 75, 82];
-const PERF_MONTHS = [
-  "Oct",
-  "Nov",
-  "Déc",
+const MONTHS_FR = [
   "Jan",
   "Fév",
   "Mar",
   "Avr",
   "Mai",
   "Jun",
+  "Jul",
+  "Aoû",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Déc",
 ];
 
+function formatMonthLabel(month: string) {
+  const monthIndex = Number(month.split("-")[1]) - 1;
+  return MONTHS_FR[monthIndex] ?? month;
+}
+
+function DemoBadge() {
+  return (
+    <span className="text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-200 whitespace-nowrap">
+      Données de démonstration
+    </span>
+  );
+}
+
+function ErrorRetry({
+  message,
+  onRetry,
+}: {
+  message: string;
+  onRetry: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 flex-wrap">
+      <p className="text-sm text-muted-foreground">{message}</p>
+      <button
+        onClick={onRetry}
+        className="text-xs font-semibold text-primary border border-primary/30 rounded-lg px-3 py-1.5 hover:bg-primary/10 transition-colors shrink-0"
+      >
+        Réessayer
+      </button>
+    </div>
+  );
+}
+
+const CHART_LEFT = 30;
+const CHART_RIGHT = 296;
+const CHART_TOP = 10;
+const CHART_BOTTOM = 100;
+
 export default function ProgressionPage() {
-  const { data: applications = [], isLoading } = useApplications();
+  const { data, isLoading, isError, error, refetch } = useProgression();
 
-  if (isLoading) {
-    return <p className="text-sm text-muted-foreground">Chargement...</p>;
-  }
+  const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
 
-  const total = applications.length;
-  const offers = applications.filter((a) => a.status === "OFFER").length;
-  const rate = total > 0 ? Math.round((offers / total) * 100) : 0;
+  const allUsedSkills = data
+    ? data.skills.filter((skill) => skill.usageCount > 0)
+    : [];
+  const topUsedSkills = [...allUsedSkills]
+    .sort((a, b) => b.usageCount - a.usageCount)
+    .slice(0, 6);
+  const maxUsageCount = Math.max(1, ...topUsedSkills.map((s) => s.usageCount));
 
-  const stats = [
-    {
-      icon: TrendingUp,
-      label: "Taux de succès",
-      value: `${rate}%`,
-      sub: `sur ${total} candidatures`,
-      color: "text-primary",
-    },
-    {
-      icon: BookOpen,
-      label: "Skills validés",
-      value: "12/15",
-      sub: "objectif atteint à 80%",
-      color: "text-blue-500",
-    },
-    {
-      icon: Clock,
-      label: "Temps de révision",
-      value: "42.5h",
-      sub: "ce mois",
-      color: "text-amber-500",
-    },
-    {
-      icon: Star,
-      label: "Confiance moyenne",
-      value: "8.2/10",
-      sub: "+0.5 vs mois dernier",
-      color: "text-purple-500",
-    },
-  ];
+  const activityByMonth = data?.activityByMonth ?? [];
+  const maxActivity = Math.max(
+    1,
+    ...activityByMonth.flatMap((m) => [
+      m.applicationsCreated,
+      m.interviewsCompleted,
+    ]),
+  );
+  const pointCount = activityByMonth.length;
+  const xForIndex = (i: number) =>
+    pointCount <= 1
+      ? (CHART_LEFT + CHART_RIGHT) / 2
+      : CHART_LEFT + (i * (CHART_RIGHT - CHART_LEFT)) / (pointCount - 1);
+  const yForValue = (v: number) =>
+    CHART_BOTTOM - (v / maxActivity) * (CHART_BOTTOM - CHART_TOP);
 
   return (
     <div className="flex flex-col gap-6">
       {/* Header */}
       <div>
-        <div className="flex items-center gap-3 flex-wrap">
-          <h1 className="text-2xl font-bold tracking-tight">
-            {"Votre Coach d'Apprentissage"}
-          </h1>
-          <span className="text-[10px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full bg-amber-50 text-amber-600 border border-amber-200 whitespace-nowrap">
-            Données de démonstration
-          </span>
-        </div>
+        <h1 className="text-2xl font-bold tracking-tight">
+          {"Votre Coach d'Apprentissage"}
+        </h1>
         <p className="text-sm text-muted-foreground mt-1">
           Suivez votre progression et optimisez votre préparation
         </p>
         <p className="text-xs text-muted-foreground mt-1">
-          Certaines métriques sont simulées en attendant les analytics V1.1.
+          Certains blocs ci-dessous restent simulés en attendant les
+          prochaines itérations des analytics.
         </p>
       </div>
 
       {/* 4 stats */}
-      <div className="grid grid-cols-4 gap-4">
-        {stats.map(({ icon: Icon, label, value, sub, color }) => (
-          <div
-            key={label}
-            className="bg-card border border-border rounded-xl p-4 flex flex-col gap-2"
-          >
-            <div className="flex items-center gap-2">
-              <Icon size={15} className={color} />
-              <span className="text-xs font-medium text-muted-foreground">
-                {label}
-              </span>
+      {isLoading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div
+              key={i}
+              className="bg-card border border-border rounded-xl p-4 flex flex-col gap-2 animate-pulse"
+            >
+              <div className="h-3 w-24 bg-muted rounded" />
+              <div className="h-7 w-16 bg-muted rounded" />
+              <div className="h-3 w-32 bg-muted rounded" />
             </div>
-            <p className="text-2xl font-bold text-foreground">{value}</p>
-            <p className="text-xs text-muted-foreground">{sub}</p>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      ) : isError ? (
+        <div className="bg-card border border-border rounded-xl p-4">
+          <ErrorRetry
+            message={`Impossible de charger vos statistiques. ${errorMessage}`}
+            onRetry={() => refetch()}
+          />
+        </div>
+      ) : data ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+          {[
+            {
+              icon: TrendingUp,
+              label: "Taux de succès",
+              value: `${Number.isFinite(data.stats.offerRate) ? Math.round(data.stats.offerRate) : 0}%`,
+              sub: `sur ${data.stats.submittedApplications} candidatures soumises`,
+              color: "text-primary",
+            },
+            {
+              icon: FileText,
+              label: "Candidatures",
+              value: `${data.stats.totalApplications}`,
+              sub: `${data.stats.submittedApplications} soumises`,
+              color: "text-blue-500",
+            },
+            {
+              icon: CheckCircle2,
+              label: "Entretiens terminés",
+              value: `${data.stats.completedInterviews}`,
+              sub: "entretiens réalisés",
+              color: "text-amber-500",
+            },
+            {
+              icon: BookOpen,
+              label: "Compétences utilisées",
+              value: `${allUsedSkills.length}`,
+              sub: `sur ${data.skills.length} compétences`,
+              color: "text-purple-500",
+            },
+          ].map(({ icon: Icon, label, value, sub, color }) => (
+            <div
+              key={label}
+              className="bg-card border border-border rounded-xl p-4 flex flex-col gap-2"
+            >
+              <div className="flex items-center gap-2">
+                <Icon size={15} className={color} />
+                <span className="text-xs font-medium text-muted-foreground">
+                  {label}
+                </span>
+              </div>
+              <p className="text-2xl font-bold text-foreground">{value}</p>
+              <p className="text-xs text-muted-foreground">{sub}</p>
+            </div>
+          ))}
+        </div>
+      ) : null}
 
       {/* Conseil banner */}
-      <div className="bg-primary/10 border border-primary/20 rounded-xl p-4 flex items-center justify-between">
+      <div className="bg-primary/10 border border-primary/20 rounded-xl p-4 flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <div className="bg-primary/20 rounded-full p-2 shrink-0">
             <Lightbulb size={16} className="text-primary" />
           </div>
           <div>
-            <p className="text-sm font-semibold text-foreground">
-              Conseil de préparation
-            </p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-sm font-semibold text-foreground">
+                Conseil de préparation
+              </p>
+              <DemoBadge />
+            </div>
             <p className="text-sm text-muted-foreground">
               {"Votre prochain entretien est chez "}
               <span className="font-medium text-foreground">Datadog</span>
@@ -184,41 +251,66 @@ export default function ProgressionPage() {
         </button>
       </div>
 
-      {/* Thèmes + Leviers */}
-      <div className="grid grid-cols-2 gap-4">
+      {/* Compétences + Leviers */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-card border border-border rounded-xl p-5 flex flex-col gap-4">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-foreground">
-              {"Thèmes d'entretien les plus fréquents"}
+              Compétences les plus travaillées
             </h2>
-            <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">
-              Derniers 30 jours
-            </span>
           </div>
-          <div className="flex flex-col gap-3">
-            {THEMES.map(({ label, score }) => (
-              <div key={label} className="flex items-center gap-3">
-                <span className="text-xs text-muted-foreground w-20 shrink-0">
-                  {label}
-                </span>
-                <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-primary rounded-full"
-                    style={{ width: `${score}%` }}
-                  />
+          {isLoading ? (
+            <div className="flex flex-col gap-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3 animate-pulse">
+                  <div className="h-3 w-20 bg-muted rounded shrink-0" />
+                  <div className="flex-1 h-2 bg-muted rounded-full" />
+                  <div className="h-3 w-6 bg-muted rounded shrink-0" />
                 </div>
-                <span className="text-xs font-medium text-foreground w-8 text-right">
-                  {score}%
-                </span>
+              ))}
+            </div>
+          ) : isError ? (
+            <ErrorRetry
+              message={`Impossible de charger vos compétences. ${errorMessage}`}
+              onRetry={() => refetch()}
+            />
+          ) : data ? (
+            topUsedSkills.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Aucune compétence utilisée pour le moment.
+              </p>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {topUsedSkills.map(({ id, name, usageCount }) => (
+                  <div key={id} className="flex items-center gap-3">
+                    <span className="text-xs text-muted-foreground w-24 shrink-0 truncate">
+                      {name}
+                    </span>
+                    <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-primary rounded-full"
+                        style={{
+                          width: `${(usageCount / maxUsageCount) * 100}%`,
+                        }}
+                      />
+                    </div>
+                    <span className="text-xs font-medium text-foreground w-8 text-right">
+                      {usageCount}
+                    </span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            )
+          ) : null}
         </div>
 
         <div className="bg-card border border-border rounded-xl p-5 flex flex-col gap-4">
-          <h2 className="text-sm font-semibold text-foreground">
-            Vos leviers de progression
-          </h2>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="text-sm font-semibold text-foreground">
+              Vos leviers de progression
+            </h2>
+            <DemoBadge />
+          </div>
           <div className="flex flex-col gap-2 flex-1">
             {LEVIERS.map(({ label, sublabel, badge, badgeClass }) => (
               <div
@@ -249,12 +341,15 @@ export default function ProgressionPage() {
       </div>
 
       {/* Insight + Réflexion */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-primary rounded-xl p-6 flex flex-col gap-4">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Flame size={14} className="text-primary-foreground/60" />
             <span className="text-[10px] font-bold tracking-widest text-primary-foreground/60 uppercase">
               Insight de Progression
+            </span>
+            <span className="text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-white/15 text-primary-foreground/80 whitespace-nowrap">
+              Données de démonstration
             </span>
           </div>
           <p className="text-primary-foreground text-sm leading-relaxed flex-1">
@@ -273,9 +368,12 @@ export default function ProgressionPage() {
         </div>
 
         <div className="bg-card border border-border rounded-xl p-5 flex flex-col gap-4">
-          <h2 className="text-sm font-semibold text-foreground">
-            {"Réflexion & Progression"}
-          </h2>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="text-sm font-semibold text-foreground">
+              {"Réflexion & Progression"}
+            </h2>
+            <DemoBadge />
+          </div>
           <div className="flex flex-col gap-5 flex-1 justify-center">
             {REFLEXION.map(({ label, score }) => (
               <div key={label} className="flex flex-col gap-1.5">
@@ -297,12 +395,15 @@ export default function ProgressionPage() {
         </div>
       </div>
 
-      {/* Journal + Performance */}
-      <div className="grid grid-cols-2 gap-4">
+      {/* Journal + Historique */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-card border border-border rounded-xl p-5 flex flex-col gap-4">
-          <h2 className="text-sm font-semibold text-foreground">
-            {"Journal d'apprentissage"}
-          </h2>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="text-sm font-semibold text-foreground">
+              {"Journal d'apprentissage"}
+            </h2>
+            <DemoBadge />
+          </div>
           <div className="flex flex-col gap-2">
             {JOURNAL.map(({ label, status, progress, date }) => (
               <div
@@ -351,53 +452,116 @@ export default function ProgressionPage() {
 
         <div className="bg-card border border-border rounded-xl p-5 flex flex-col gap-4">
           <h2 className="text-sm font-semibold text-foreground">
-            Performance historique
+            Historique d&apos;activité
           </h2>
-          <svg viewBox="0 0 300 120" className="w-full">
-            {[20, 45, 70, 95].map((y) => (
-              <line
-                key={y}
-                x1="28"
-                y1={y}
-                x2="296"
-                y2={y}
-                stroke="var(--border)"
-                strokeWidth="0.5"
-              />
-            ))}
-            <polyline
-              points={PERF_POINTS.map(
-                (v, i) => `${30 + i * 33},${100 - v * 0.9}`,
-              ).join(" ")}
-              fill="none"
-              stroke="var(--primary)"
-              strokeWidth="2"
-              strokeLinejoin="round"
-              strokeLinecap="round"
+          {isLoading ? (
+            <div className="h-[120px] bg-muted rounded-lg animate-pulse" />
+          ) : isError ? (
+            <ErrorRetry
+              message={`Impossible de charger votre historique. ${errorMessage}`}
+              onRetry={() => refetch()}
             />
-            {PERF_POINTS.map((v, i) => (
-              <circle
-                key={i}
-                cx={30 + i * 33}
-                cy={100 - v * 0.9}
-                r="3"
-                fill="var(--primary)"
-              />
-            ))}
-            {PERF_MONTHS.map((m, i) => (
-              <text
-                key={m}
-                x={30 + i * 33}
-                y="115"
-                textAnchor="middle"
-                fontSize="7"
-                fill="currentColor"
-                className="text-muted-foreground"
-              >
-                {m}
-              </text>
-            ))}
-          </svg>
+          ) : data ? (
+            <>
+              <svg viewBox="0 0 300 120" className="w-full">
+                {[20, 45, 70, 95].map((y) => (
+                  <line
+                    key={y}
+                    x1={CHART_LEFT - 2}
+                    y1={y}
+                    x2={CHART_RIGHT}
+                    y2={y}
+                    stroke="var(--border)"
+                    strokeWidth="0.5"
+                  />
+                ))}
+                {pointCount === 0 ? (
+                  <text
+                    x="163"
+                    y="60"
+                    textAnchor="middle"
+                    fontSize="8"
+                    className="fill-muted-foreground"
+                  >
+                    Aucune activité enregistrée
+                  </text>
+                ) : (
+                  <>
+                    <polyline
+                      points={activityByMonth
+                        .map(
+                          (m, i) =>
+                            `${xForIndex(i)},${yForValue(m.applicationsCreated)}`,
+                        )
+                        .join(" ")}
+                      fill="none"
+                      stroke="var(--primary)"
+                      strokeWidth="2"
+                      strokeLinejoin="round"
+                      strokeLinecap="round"
+                    />
+                    <polyline
+                      points={activityByMonth
+                        .map(
+                          (m, i) =>
+                            `${xForIndex(i)},${yForValue(m.interviewsCompleted)}`,
+                        )
+                        .join(" ")}
+                      fill="none"
+                      stroke="#f59e0b"
+                      strokeWidth="2"
+                      strokeLinejoin="round"
+                      strokeLinecap="round"
+                    />
+                    {activityByMonth.map((m, i) => (
+                      <circle
+                        key={`applications-${m.month}`}
+                        cx={xForIndex(i)}
+                        cy={yForValue(m.applicationsCreated)}
+                        r="3"
+                        fill="var(--primary)"
+                      />
+                    ))}
+                    {activityByMonth.map((m, i) => (
+                      <circle
+                        key={`interviews-${m.month}`}
+                        cx={xForIndex(i)}
+                        cy={yForValue(m.interviewsCompleted)}
+                        r="3"
+                        fill="#f59e0b"
+                      />
+                    ))}
+                    {activityByMonth.map((m, i) => (
+                      <text
+                        key={m.month}
+                        x={xForIndex(i)}
+                        y="115"
+                        textAnchor="middle"
+                        fontSize="7"
+                        fill="currentColor"
+                        className="text-muted-foreground"
+                      >
+                        {formatMonthLabel(m.month)}
+                      </text>
+                    ))}
+                  </>
+                )}
+              </svg>
+              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-primary inline-block" />
+                  Candidatures créées
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span
+                    className="w-2 h-2 rounded-full inline-block"
+                    style={{ backgroundColor: "#f59e0b" }}
+                  />
+                  Entretiens terminés
+                </span>
+              </div>
+            </>
+          ) : null}
         </div>
       </div>
     </div>

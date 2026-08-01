@@ -120,3 +120,31 @@ export type DashboardData = {
     byCompany: Record<string, number>;
   };
 };
+
+export type ProgressionData = {
+  stats: {
+    totalApplications: number;
+    submittedApplications: number;
+    byStatus: {
+      TARGETED: number;
+      APPLIED: number;
+      INTERVIEWING: number;
+      OFFER: number;
+      REJECTED: number;
+    };
+    offerRate: number;
+    completedInterviews: number;
+  };
+  activityByMonth: Array<{
+    month: string;
+    applicationsCreated: number;
+    interviewsCompleted: number;
+  }>;
+  skills: Array<{
+    id: string;
+    name: string;
+    interviewStepsCount: number;
+    preparationTasksCount: number;
+    usageCount: number;
+  }>;
+};
