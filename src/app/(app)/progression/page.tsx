@@ -86,6 +86,26 @@ function DemoBadge() {
   );
 }
 
+function ErrorRetry({
+  message,
+  onRetry,
+}: {
+  message: string;
+  onRetry: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 flex-wrap">
+      <p className="text-sm text-muted-foreground">{message}</p>
+      <button
+        onClick={onRetry}
+        className="text-xs font-semibold text-primary border border-primary/30 rounded-lg px-3 py-1.5 hover:bg-primary/10 transition-colors shrink-0"
+      >
+        Réessayer
+      </button>
+    </div>
+  );
+}
+
 const CHART_LEFT = 30;
 const CHART_RIGHT = 296;
 const CHART_TOP = 10;
@@ -94,42 +114,17 @@ const CHART_BOTTOM = 100;
 export default function ProgressionPage() {
   const { data, isLoading, isError, error, refetch } = useProgression();
 
-  if (isLoading) {
-    return <p className="text-sm text-muted-foreground">Chargement...</p>;
-  }
+  const errorMessage = error instanceof Error ? error.message : "Erreur inconnue";
 
-  if (isError) {
-    return (
-      <div className="bg-card border border-border rounded-xl p-6 flex flex-col items-center gap-3 text-center">
-        <p className="text-sm text-foreground font-medium">
-          Impossible de charger votre progression.
-        </p>
-        <p className="text-xs text-muted-foreground">
-          {error instanceof Error ? error.message : "Erreur inconnue"}
-        </p>
-        <button
-          onClick={() => refetch()}
-          className="text-xs font-semibold text-primary border border-primary/30 rounded-lg px-3 py-1.5 hover:bg-primary/10 transition-colors"
-        >
-          Réessayer
-        </button>
-      </div>
-    );
-  }
-
-  if (!data) return null;
-
-  const { stats, activityByMonth, skills } = data;
-  const offerRate = Number.isFinite(stats.offerRate)
-    ? Math.round(stats.offerRate)
-    : 0;
-
-  const usedSkills = skills
-    .filter((skill) => skill.usageCount > 0)
+  const allUsedSkills = data
+    ? data.skills.filter((skill) => skill.usageCount > 0)
+    : [];
+  const topUsedSkills = [...allUsedSkills]
     .sort((a, b) => b.usageCount - a.usageCount)
     .slice(0, 6);
-  const maxUsageCount = Math.max(1, ...usedSkills.map((s) => s.usageCount));
+  const maxUsageCount = Math.max(1, ...topUsedSkills.map((s) => s.usageCount));
 
+  const activityByMonth = data?.activityByMonth ?? [];
   const maxActivity = Math.max(
     1,
     ...activityByMonth.flatMap((m) => [
@@ -144,37 +139,6 @@ export default function ProgressionPage() {
       : CHART_LEFT + (i * (CHART_RIGHT - CHART_LEFT)) / (pointCount - 1);
   const yForValue = (v: number) =>
     CHART_BOTTOM - (v / maxActivity) * (CHART_BOTTOM - CHART_TOP);
-
-  const statCards = [
-    {
-      icon: TrendingUp,
-      label: "Taux de succès",
-      value: `${offerRate}%`,
-      sub: `sur ${stats.submittedApplications} candidatures soumises`,
-      color: "text-primary",
-    },
-    {
-      icon: FileText,
-      label: "Candidatures",
-      value: `${stats.totalApplications}`,
-      sub: `${stats.submittedApplications} soumises`,
-      color: "text-blue-500",
-    },
-    {
-      icon: CheckCircle2,
-      label: "Entretiens terminés",
-      value: `${stats.completedInterviews}`,
-      sub: "entretiens réalisés",
-      color: "text-amber-500",
-    },
-    {
-      icon: BookOpen,
-      label: "Compétences utilisées",
-      value: `${usedSkills.length}`,
-      sub: `sur ${skills.length} compétences`,
-      color: "text-purple-500",
-    },
-  ];
 
   return (
     <div className="flex flex-col gap-6">
@@ -193,23 +157,74 @@ export default function ProgressionPage() {
       </div>
 
       {/* 4 stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        {statCards.map(({ icon: Icon, label, value, sub, color }) => (
-          <div
-            key={label}
-            className="bg-card border border-border rounded-xl p-4 flex flex-col gap-2"
-          >
-            <div className="flex items-center gap-2">
-              <Icon size={15} className={color} />
-              <span className="text-xs font-medium text-muted-foreground">
-                {label}
-              </span>
+      {isLoading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div
+              key={i}
+              className="bg-card border border-border rounded-xl p-4 flex flex-col gap-2 animate-pulse"
+            >
+              <div className="h-3 w-24 bg-muted rounded" />
+              <div className="h-7 w-16 bg-muted rounded" />
+              <div className="h-3 w-32 bg-muted rounded" />
             </div>
-            <p className="text-2xl font-bold text-foreground">{value}</p>
-            <p className="text-xs text-muted-foreground">{sub}</p>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      ) : isError ? (
+        <div className="bg-card border border-border rounded-xl p-4">
+          <ErrorRetry
+            message={`Impossible de charger vos statistiques. ${errorMessage}`}
+            onRetry={() => refetch()}
+          />
+        </div>
+      ) : data ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+          {[
+            {
+              icon: TrendingUp,
+              label: "Taux de succès",
+              value: `${Number.isFinite(data.stats.offerRate) ? Math.round(data.stats.offerRate) : 0}%`,
+              sub: `sur ${data.stats.submittedApplications} candidatures soumises`,
+              color: "text-primary",
+            },
+            {
+              icon: FileText,
+              label: "Candidatures",
+              value: `${data.stats.totalApplications}`,
+              sub: `${data.stats.submittedApplications} soumises`,
+              color: "text-blue-500",
+            },
+            {
+              icon: CheckCircle2,
+              label: "Entretiens terminés",
+              value: `${data.stats.completedInterviews}`,
+              sub: "entretiens réalisés",
+              color: "text-amber-500",
+            },
+            {
+              icon: BookOpen,
+              label: "Compétences utilisées",
+              value: `${allUsedSkills.length}`,
+              sub: `sur ${data.skills.length} compétences`,
+              color: "text-purple-500",
+            },
+          ].map(({ icon: Icon, label, value, sub, color }) => (
+            <div
+              key={label}
+              className="bg-card border border-border rounded-xl p-4 flex flex-col gap-2"
+            >
+              <div className="flex items-center gap-2">
+                <Icon size={15} className={color} />
+                <span className="text-xs font-medium text-muted-foreground">
+                  {label}
+                </span>
+              </div>
+              <p className="text-2xl font-bold text-foreground">{value}</p>
+              <p className="text-xs text-muted-foreground">{sub}</p>
+            </div>
+          ))}
+        </div>
+      ) : null}
 
       {/* Conseil banner */}
       <div className="bg-primary/10 border border-primary/20 rounded-xl p-4 flex items-center justify-between flex-wrap gap-3">
@@ -244,32 +259,49 @@ export default function ProgressionPage() {
               Compétences les plus travaillées
             </h2>
           </div>
-          {usedSkills.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Aucune compétence utilisée pour le moment.
-            </p>
-          ) : (
+          {isLoading ? (
             <div className="flex flex-col gap-3">
-              {usedSkills.map(({ id, name, usageCount }) => (
-                <div key={id} className="flex items-center gap-3">
-                  <span className="text-xs text-muted-foreground w-24 shrink-0 truncate">
-                    {name}
-                  </span>
-                  <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-primary rounded-full"
-                      style={{
-                        width: `${(usageCount / maxUsageCount) * 100}%`,
-                      }}
-                    />
-                  </div>
-                  <span className="text-xs font-medium text-foreground w-8 text-right">
-                    {usageCount}
-                  </span>
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3 animate-pulse">
+                  <div className="h-3 w-20 bg-muted rounded shrink-0" />
+                  <div className="flex-1 h-2 bg-muted rounded-full" />
+                  <div className="h-3 w-6 bg-muted rounded shrink-0" />
                 </div>
               ))}
             </div>
-          )}
+          ) : isError ? (
+            <ErrorRetry
+              message={`Impossible de charger vos compétences. ${errorMessage}`}
+              onRetry={() => refetch()}
+            />
+          ) : data ? (
+            topUsedSkills.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Aucune compétence utilisée pour le moment.
+              </p>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {topUsedSkills.map(({ id, name, usageCount }) => (
+                  <div key={id} className="flex items-center gap-3">
+                    <span className="text-xs text-muted-foreground w-24 shrink-0 truncate">
+                      {name}
+                    </span>
+                    <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-primary rounded-full"
+                        style={{
+                          width: `${(usageCount / maxUsageCount) * 100}%`,
+                        }}
+                      />
+                    </div>
+                    <span className="text-xs font-medium text-foreground w-8 text-right">
+                      {usageCount}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )
+          ) : null}
         </div>
 
         <div className="bg-card border border-border rounded-xl p-5 flex flex-col gap-4">
@@ -422,103 +454,114 @@ export default function ProgressionPage() {
           <h2 className="text-sm font-semibold text-foreground">
             Historique d&apos;activité
           </h2>
-          <svg viewBox="0 0 300 120" className="w-full">
-            {[20, 45, 70, 95].map((y) => (
-              <line
-                key={y}
-                x1={CHART_LEFT - 2}
-                y1={y}
-                x2={CHART_RIGHT}
-                y2={y}
-                stroke="var(--border)"
-                strokeWidth="0.5"
-              />
-            ))}
-            {pointCount === 0 ? (
-              <text
-                x="163"
-                y="60"
-                textAnchor="middle"
-                fontSize="8"
-                className="fill-muted-foreground"
-              >
-                Aucune activité enregistrée
-              </text>
-            ) : (
-              <>
-                <polyline
-                  points={activityByMonth
-                    .map(
-                      (m, i) =>
-                        `${xForIndex(i)},${yForValue(m.applicationsCreated)}`,
-                    )
-                    .join(" ")}
-                  fill="none"
-                  stroke="var(--primary)"
-                  strokeWidth="2"
-                  strokeLinejoin="round"
-                  strokeLinecap="round"
-                />
-                <polyline
-                  points={activityByMonth
-                    .map(
-                      (m, i) =>
-                        `${xForIndex(i)},${yForValue(m.interviewsCompleted)}`,
-                    )
-                    .join(" ")}
-                  fill="none"
-                  stroke="#f59e0b"
-                  strokeWidth="2"
-                  strokeLinejoin="round"
-                  strokeLinecap="round"
-                />
-                {activityByMonth.map((m, i) => (
-                  <circle
-                    key={`applications-${m.month}`}
-                    cx={xForIndex(i)}
-                    cy={yForValue(m.applicationsCreated)}
-                    r="3"
-                    fill="var(--primary)"
+          {isLoading ? (
+            <div className="h-[120px] bg-muted rounded-lg animate-pulse" />
+          ) : isError ? (
+            <ErrorRetry
+              message={`Impossible de charger votre historique. ${errorMessage}`}
+              onRetry={() => refetch()}
+            />
+          ) : data ? (
+            <>
+              <svg viewBox="0 0 300 120" className="w-full">
+                {[20, 45, 70, 95].map((y) => (
+                  <line
+                    key={y}
+                    x1={CHART_LEFT - 2}
+                    y1={y}
+                    x2={CHART_RIGHT}
+                    y2={y}
+                    stroke="var(--border)"
+                    strokeWidth="0.5"
                   />
                 ))}
-                {activityByMonth.map((m, i) => (
-                  <circle
-                    key={`interviews-${m.month}`}
-                    cx={xForIndex(i)}
-                    cy={yForValue(m.interviewsCompleted)}
-                    r="3"
-                    fill="#f59e0b"
-                  />
-                ))}
-                {activityByMonth.map((m, i) => (
+                {pointCount === 0 ? (
                   <text
-                    key={m.month}
-                    x={xForIndex(i)}
-                    y="115"
+                    x="163"
+                    y="60"
                     textAnchor="middle"
-                    fontSize="7"
-                    fill="currentColor"
-                    className="text-muted-foreground"
+                    fontSize="8"
+                    className="fill-muted-foreground"
                   >
-                    {formatMonthLabel(m.month)}
+                    Aucune activité enregistrée
                   </text>
-                ))}
-              </>
-            )}
-          </svg>
-          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-primary inline-block" />
-              Candidatures créées
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span
-                className="w-2 h-2 rounded-full inline-block"
-                style={{ backgroundColor: "#f59e0b" }}
-              />
-              Entretiens terminés
-            </span>
-          </div>
+                ) : (
+                  <>
+                    <polyline
+                      points={activityByMonth
+                        .map(
+                          (m, i) =>
+                            `${xForIndex(i)},${yForValue(m.applicationsCreated)}`,
+                        )
+                        .join(" ")}
+                      fill="none"
+                      stroke="var(--primary)"
+                      strokeWidth="2"
+                      strokeLinejoin="round"
+                      strokeLinecap="round"
+                    />
+                    <polyline
+                      points={activityByMonth
+                        .map(
+                          (m, i) =>
+                            `${xForIndex(i)},${yForValue(m.interviewsCompleted)}`,
+                        )
+                        .join(" ")}
+                      fill="none"
+                      stroke="#f59e0b"
+                      strokeWidth="2"
+                      strokeLinejoin="round"
+                      strokeLinecap="round"
+                    />
+                    {activityByMonth.map((m, i) => (
+                      <circle
+                        key={`applications-${m.month}`}
+                        cx={xForIndex(i)}
+                        cy={yForValue(m.applicationsCreated)}
+                        r="3"
+                        fill="var(--primary)"
+                      />
+                    ))}
+                    {activityByMonth.map((m, i) => (
+                      <circle
+                        key={`interviews-${m.month}`}
+                        cx={xForIndex(i)}
+                        cy={yForValue(m.interviewsCompleted)}
+                        r="3"
+                        fill="#f59e0b"
+                      />
+                    ))}
+                    {activityByMonth.map((m, i) => (
+                      <text
+                        key={m.month}
+                        x={xForIndex(i)}
+                        y="115"
+                        textAnchor="middle"
+                        fontSize="7"
+                        fill="currentColor"
+                        className="text-muted-foreground"
+                      >
+                        {formatMonthLabel(m.month)}
+                      </text>
+                    ))}
+                  </>
+                )}
+              </svg>
+              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-primary inline-block" />
+                  Candidatures créées
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span
+                    className="w-2 h-2 rounded-full inline-block"
+                    style={{ backgroundColor: "#f59e0b" }}
+                  />
+                  Entretiens terminés
+                </span>
+              </div>
+            </>
+          ) : null}
         </div>
       </div>
     </div>
