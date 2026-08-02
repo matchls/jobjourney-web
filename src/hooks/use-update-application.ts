@@ -18,6 +18,10 @@ export type UpdateApplicationInput = {
   contactRole?: string;
   contactEmail?: string;
   referralNote?: string;
+  contractType?: string;
+  // Le backend n'autorise pas la modification directe de importReviewStatus :
+  // ce flag déclenche la transition PENDING -> REVIEWED côté serveur.
+  confirmImportReview?: true;
 };
 
 export function useUpdateApplication() {

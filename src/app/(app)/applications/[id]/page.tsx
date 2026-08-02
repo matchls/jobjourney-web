@@ -7,8 +7,11 @@ import {
   Pencil,
   Share2,
   AlertTriangle,
+  AlertCircle,
   BookOpen,
   ExternalLink,
+  ShieldCheck,
+  Ban,
 } from "lucide-react";
 import { useApplication } from "@/hooks/use-application";
 import { InterviewSteps } from "@/components/application/interview-steps";
@@ -17,6 +20,16 @@ import type { ApplicationStatus } from "@/types";
 import { useRouter } from "next/navigation";
 import { useDeleteApplication } from "@/hooks/use-delete-application";
 import { formatFrenchDate } from "@/lib/format-date";
+import {
+  AgentSourceTag,
+  ImportReviewBadge,
+} from "@/components/applications/agent-import-badge";
+import {
+  fieldLabel,
+  getUncertainFields,
+  isAgentImport,
+  needsImportReview,
+} from "@/lib/agent-import";
 
 const statusConfig: Record<
   ApplicationStatus,
@@ -41,13 +54,19 @@ export default function ApplicationDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const { data: application, isLoading } = useApplication(id);
+  const { data: application, isLoading, isError } = useApplication(id);
   const router = useRouter();
   const { mutate: deleteApplication, isPending: isDeleting } =
     useDeleteApplication();
 
   if (isLoading)
     return <p className="text-sm text-muted-foreground">Chargement...</p>;
+  if (isError)
+    return (
+      <p className="text-sm text-destructive">
+        Impossible de charger cette candidature.
+      </p>
+    );
   if (!application)
     return (
       <p className="text-sm text-muted-foreground">Candidature introuvable.</p>
@@ -55,6 +74,29 @@ export default function ApplicationDetailPage({
 
   const status = statusConfig[application.status];
   const statusHistory = application.statusHistory ?? [];
+  const uncertainFields = getUncertainFields(application);
+
+  const importScore = application.agentImportMetadata?.score;
+  const hasValidScore =
+    typeof importScore === "number" &&
+    Number.isFinite(importScore) &&
+    importScore >= 0 &&
+    importScore <= 100;
+  const hasReviewedAt =
+    application.importReviewStatus === "REVIEWED" &&
+    Boolean(application.reviewedAt);
+  const hasSummary = Boolean(application.agentImportMetadata?.summary);
+  const hasStack = Boolean(
+    application.agentImportMetadata?.stack &&
+      application.agentImportMetadata.stack.length > 0,
+  );
+  const showImportDetails =
+    isAgentImport(application) &&
+    (hasSummary ||
+      hasStack ||
+      hasValidScore ||
+      uncertainFields.length > 0 ||
+      hasReviewedAt);
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
@@ -97,7 +139,9 @@ export default function ApplicationDetailPage({
               >
                 {status.label}
               </span>
+              <ImportReviewBadge application={application} />
             </div>
+            <AgentSourceTag application={application} className="mt-1" />
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -127,6 +171,116 @@ export default function ApplicationDetailPage({
           </Link>
         </div>
       </div>
+
+      {/* Import agent — à vérifier */}
+      {needsImportReview(application) && (
+        <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+          <AlertCircle size={18} className="text-amber-600 shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-amber-800">
+              Candidature importée par l&apos;agent — à vérifier
+            </p>
+            <p className="text-xs text-amber-700 mt-1">
+              {uncertainFields.length > 0
+                ? `Champs incertains : ${uncertainFields
+                    .map(fieldLabel)
+                    .join(", ")}`
+                : "Vérifiez les informations avant de valider cette candidature."}
+            </p>
+          </div>
+          <Link
+            href={`/applications/${id}/edit`}
+            className="shrink-0 flex items-center gap-2 px-3 py-1.5 bg-amber-600 text-white rounded-lg text-xs font-semibold hover:bg-amber-700 transition-colors whitespace-nowrap"
+          >
+            <ShieldCheck size={14} />
+            Vérifier et valider
+          </Link>
+        </div>
+      )}
+
+      {/* Offre source indisponible — indépendant des métadonnées d'import */}
+      {isAgentImport(application) && !application.offerUrl && (
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Ban size={12} className="shrink-0" />
+          Offre source indisponible
+        </div>
+      )}
+
+      {/* Détails de l'import agent — chaque bloc s'affiche selon sa propre
+          disponibilité, pas selon la présence globale de agentImportMetadata */}
+      {showImportDetails && (
+        <section>
+          <h2 className="text-xl font-semibold text-foreground mb-4">
+            Détails de l&apos;import
+          </h2>
+          <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+            {application.agentImportMetadata?.summary && (
+              <div>
+                <p className="text-xs text-muted-foreground">Résumé</p>
+                <p className="text-sm text-foreground whitespace-pre-line">
+                  {application.agentImportMetadata.summary}
+                </p>
+              </div>
+            )}
+            {application.agentImportMetadata?.stack &&
+              application.agentImportMetadata.stack.length > 0 && (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1.5">
+                    Stack détectée
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {application.agentImportMetadata.stack.map((tech) => (
+                      <span
+                        key={tech}
+                        className="text-xs px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground"
+                      >
+                        {tech}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            {hasValidScore && (
+              <p className="text-sm text-foreground">
+                {`Compatibilité estimée : ${Math.round(importScore ?? 0)}/100`}
+              </p>
+            )}
+            {uncertainFields.length > 0 && (
+              <div>
+                <p className="text-xs text-muted-foreground mb-1.5">
+                  Champs à vérifier
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {uncertainFields.map((field) => {
+                    const confidence =
+                      application.agentImportMetadata?.confidenceByField?.[
+                        field
+                      ];
+                    return (
+                      <span
+                        key={field}
+                        className="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200"
+                      >
+                        {fieldLabel(field)}
+                        {typeof confidence === "number" &&
+                          ` · ${Math.round(confidence * 100)}%`}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            {hasReviewedAt && (
+              <div>
+                <p className="text-xs text-muted-foreground">Vérifiée le</p>
+                <p className="text-sm text-foreground">
+                  {formatFrenchDate(application.reviewedAt)}
+                </p>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* Informations */}
       {(application.location ||
