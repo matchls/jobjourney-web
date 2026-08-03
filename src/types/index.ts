@@ -68,6 +68,17 @@ export type ApplicationStatusHistory = {
   applicationId: string;
 };
 
+export type CreationSource = "MANUAL" | "AGENT_IMPORT";
+
+export type ImportReviewStatus = "NOT_REQUIRED" | "PENDING" | "REVIEWED";
+
+export type AgentImportMetadata = {
+  stack?: string[];
+  summary?: string;
+  score?: number;
+  confidenceByField?: Record<string, number>;
+};
+
 export type Application = {
   id: string;
   company: string;
@@ -93,6 +104,12 @@ export type Application = {
   interviewSteps: InterviewStep[];
   preparationTasks: PreparationTask[];
   statusHistory?: ApplicationStatusHistory[];
+  creationSource?: CreationSource | null;
+  importReviewStatus?: ImportReviewStatus | null;
+  uncertainFields?: string[] | null;
+  agentImportMetadata?: AgentImportMetadata | null;
+  contractType?: string | null;
+  reviewedAt?: string | null;
 };
 export type DashboardData = {
   stats: {

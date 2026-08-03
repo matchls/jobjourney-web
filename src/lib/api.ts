@@ -6,6 +6,18 @@ export function apiUrl(path: string): string {
   return `${API_URL}${path}`;
 }
 
+export class ApiError extends Error {
+  status: number;
+  code?: string;
+
+  constructor(message: string, status: number, code?: string) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.code = code;
+  }
+}
+
 async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
@@ -30,10 +42,12 @@ async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
       message = body.error;
     }
 
-    throw new Error(message);
+    const code: string | undefined =
+      typeof body?.error?.code === "string" ? body.error.code : body?.code;
+
+    throw new ApiError(message, res.status, code);
   }
   if (res.status === 204) return null as T;
-  return res.json();
   return res.json();
 }
 

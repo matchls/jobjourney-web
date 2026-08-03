@@ -16,10 +16,17 @@ import {
   Pencil,
   Trash2,
   ArrowUpDown,
+  AlertCircle,
+  AlertTriangle,
 } from "lucide-react";
 import { useApplications } from "@/hooks/use-applications";
 import { useDeleteApplication } from "@/hooks/use-delete-application";
 import { NewApplicationDialog } from "@/components/applications/new-application-dialog";
+import {
+  AgentSourceTag,
+  ImportReviewBadge,
+} from "@/components/applications/agent-import-badge";
+import { needsImportReview } from "@/lib/agent-import";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -190,12 +197,14 @@ function StepProgress({ app }: { app: Application }) {
 }
 
 export default function ApplicationsPage() {
-  const { data: applications = [], isLoading } = useApplications();
+  const { data: applications = [], isLoading, isError, error } =
+    useApplications();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<ApplicationStatus | "ALL">(
     "ALL",
   );
   const [sourceFilter, setSourceFilter] = useState("ALL");
+  const [reviewOnly, setReviewOnly] = useState(false);
   const [sortField, setSortField] = useState<SortField>(DEFAULT_SORT_FIELD);
   const [sortOrder, setSortOrder] = useState<SortOrder>(DEFAULT_SORT_ORDER);
   const router = useRouter();
@@ -210,6 +219,8 @@ export default function ApplicationsPage() {
     ),
   ).sort((a, b) => a.localeCompare(b, "fr"));
 
+  const pendingReviewCount = applications.filter(needsImportReview).length;
+
   const query = search.trim().toLowerCase();
   const filtered = applications.filter((app) => {
     const matchesSearch =
@@ -221,7 +232,8 @@ export default function ApplicationsPage() {
       statusFilter === "ALL" || app.status === statusFilter;
     const matchesSource =
       sourceFilter === "ALL" || app.source === sourceFilter;
-    return matchesSearch && matchesStatus && matchesSource;
+    const matchesReview = !reviewOnly || needsImportReview(app);
+    return matchesSearch && matchesStatus && matchesSource && matchesReview;
   });
 
   const sortedApplications = [...filtered].sort((a, b) =>
@@ -229,12 +241,16 @@ export default function ApplicationsPage() {
   );
 
   const hasActiveFilters =
-    query !== "" || statusFilter !== "ALL" || sourceFilter !== "ALL";
+    query !== "" ||
+    statusFilter !== "ALL" ||
+    sourceFilter !== "ALL" ||
+    reviewOnly;
 
   function handleReset() {
     setSearch("");
     setStatusFilter("ALL");
     setSourceFilter("ALL");
+    setReviewOnly(false);
   }
 
   return (
@@ -323,6 +339,26 @@ export default function ApplicationsPage() {
           </DropdownMenuContent>
         </DropdownMenu>
 
+        <button
+          type="button"
+          aria-pressed={reviewOnly}
+          onClick={() => setReviewOnly((v) => !v)}
+          className={cn(
+            "flex items-center gap-2 px-4 py-2 border rounded-lg text-sm font-medium transition-colors whitespace-nowrap",
+            reviewOnly
+              ? "border-amber-300 bg-amber-50 text-amber-700"
+              : "border-border bg-card hover:bg-muted",
+          )}
+        >
+          <AlertCircle size={14} />
+          Imports à vérifier
+          {pendingReviewCount > 0 && (
+            <span className="text-[10px] font-bold bg-amber-200 text-amber-800 rounded-full px-1.5 py-0.5 leading-none">
+              {pendingReviewCount}
+            </span>
+          )}
+        </button>
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="flex items-center gap-2 px-4 py-2 border border-border rounded-lg text-sm font-medium bg-card hover:bg-muted transition-colors whitespace-nowrap">
@@ -384,6 +420,16 @@ export default function ApplicationsPage() {
       {/* Liste */}
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Chargement...</p>
+      ) : isError ? (
+        <div className="p-8 border border-destructive/30 bg-destructive/5 rounded-xl flex flex-col items-center gap-2 text-center">
+          <AlertTriangle size={20} className="text-destructive" />
+          <p className="text-sm font-semibold text-destructive">
+            Impossible de charger les candidatures
+          </p>
+          <p className="text-xs text-muted-foreground max-w-xs mx-auto leading-relaxed">
+            {error?.message ?? "Une erreur est survenue. Réessayez plus tard."}
+          </p>
+        </div>
       ) : sortedApplications.length === 0 ? (
         <div className="p-12 border border-dashed border-border rounded-xl flex flex-col items-center gap-3 text-center">
           <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center">
@@ -391,14 +437,18 @@ export default function ApplicationsPage() {
           </div>
           <div>
             <p className="text-sm font-semibold text-foreground">
-              {hasActiveFilters
-                ? "Aucune candidature ne correspond à ces filtres"
-                : "Aucune candidature pour le moment"}
+              {reviewOnly
+                ? "Aucun import agent à vérifier"
+                : hasActiveFilters
+                  ? "Aucune candidature ne correspond à ces filtres"
+                  : "Aucune candidature pour le moment"}
             </p>
             <p className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto leading-relaxed">
-              {hasActiveFilters
-                ? "Essayez d'ajuster votre recherche ou vos filtres."
-                : "Ajoutez votre première candidature pour commencer à suivre votre recherche."}
+              {reviewOnly
+                ? "Toutes les candidatures importées par l'agent ont été vérifiées."
+                : hasActiveFilters
+                  ? "Essayez d'ajuster votre recherche ou vos filtres."
+                  : "Ajoutez votre première candidature pour commencer à suivre votre recherche."}
             </p>
           </div>
           {hasActiveFilters && (
@@ -447,6 +497,7 @@ export default function ApplicationsPage() {
                   <p className="text-xs text-muted-foreground truncate mt-0.5">
                     {app.position}
                   </p>
+                  <AgentSourceTag application={app} className="mt-0.5" />
                 </div>
 
                 {/* Statut */}
@@ -458,6 +509,9 @@ export default function ApplicationsPage() {
                 >
                   {status.label}
                 </span>
+
+                {/* À vérifier */}
+                <ImportReviewBadge application={app} />
 
                 {/* Source */}
                 <div className="w-28 shrink-0">

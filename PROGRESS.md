@@ -44,6 +44,16 @@
   - Section Settings existante rendue dynamique (chips ajout/suppression RH/Technique/Final/Autre, doublons autorisés pour un 2e tour technique) + `use-update-profile.ts` étendu avec `defaultInterviewSteps`
   - `new-application-dialog.tsx` : après création de la candidature, crée automatiquement les étapes du processus par défaut de l'utilisateur (`POST /applications/:id/interview-steps` en boucle, best-effort via `Promise.allSettled` — un échec d'étape ne bloque pas la candidature déjà créée)
   - Aucun impact sur les candidatures existantes (logique uniquement au moment de la création)
+- Revue des candidatures importées par agent (V1.1, issue #14, frontend uniquement — dépend de l'issue backend `jobjourney-api#6`) :
+  - Types : `Application.creationSource` (`MANUAL`/`AGENT_IMPORT`), `importReviewStatus` (`NOT_REQUIRED`/`PENDING`/`REVIEWED`), `uncertainFields`, `agentImportMetadata`, `contractType`, `reviewedAt` — tous optionnels/nullables côté frontend, le backend ne garantit pas leur présence sur chaque candidature
+  - `src/lib/agent-import.ts` — libellés FR partagés pour les noms de champs (`fieldLabel`, avec fallback humanisé pour les champs inconnus) et helpers de lecture sûrs : `isAgentImport`, `needsImportReview` (exige `creationSource === "AGENT_IMPORT"` **et** `importReviewStatus === "PENDING"`), `getUncertainFields` (fallback `[]`)
+  - `src/components/applications/agent-import-badge.tsx` — `AgentSourceTag` (indication discrète "Import agent") et `ImportReviewBadge` (pastille ambre "À vérifier"), tous deux basés sur ces helpers
+  - Page liste (`applications/page.tsx`) : badges dans chaque ligne, bouton de filtre "Imports à vérifier" (compteur des imports en attente), état d'erreur dédié, message d'état vide spécifique à ce filtre
+  - Fiche candidature (`applications/[id]/page.tsx`) : bannière "à vérifier" avec CTA "Vérifier et valider", indicateur "Offre source indisponible" (affiché dès que l'offre est absente, même sans `agentImportMetadata`), section "Détails de l'import" (résumé, stack, score de confiance 0-100, champs incertains avec confiance par champ, date de revue), état d'erreur dédié
+  - Formulaire d'édition (`applications/[id]/edit/page.tsx`) : champs incertains surlignés (bordure ambre + pastille "À vérifier"), nouveau champ "Type de contrat", le bouton "Enregistrer" devient "Enregistrer et valider" pour une candidature en attente de revue et envoie `confirmImportReview: true` dans le même PATCH (une seule action pour corriger + valider) — message dédié si le backend renvoie un 409 `application_duplicate`
+  - `src/lib/api.ts` — nouvelle classe `ApiError` (message, `status`, `code`) pour distinguer les erreurs API par code plutôt que par message
+  - `use-update-application.ts` étendu avec `contractType` et `confirmImportReview?: true` dans `UpdateApplicationInput` (le backend n'autorise pas la modification directe de `importReviewStatus`/`creationSource`/`uncertainFields`/`agentImportMetadata`/`reviewedAt` ; c'est lui qui gère la transition `PENDING` → `REVIEWED` et fixe `reviewedAt`)
+  - Candidatures manuelles/Huntr non affectées : les badges/sections liés à l'import ne s'affichent que via `isAgentImport`/`needsImportReview`
 
 ## ⏭️ Plan V1 — Fonctionnalités manquantes
 
