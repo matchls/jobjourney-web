@@ -54,6 +54,16 @@
   - `src/lib/api.ts` — nouvelle classe `ApiError` (message, `status`, `code`) pour distinguer les erreurs API par code plutôt que par message
   - `use-update-application.ts` étendu avec `contractType` et `confirmImportReview?: true` dans `UpdateApplicationInput` (le backend n'autorise pas la modification directe de `importReviewStatus`/`creationSource`/`uncertainFields`/`agentImportMetadata`/`reviewedAt` ; c'est lui qui gère la transition `PENDING` → `REVIEWED` et fixe `reviewedAt`)
   - Candidatures manuelles/Huntr non affectées : les badges/sections liés à l'import ne s'affichent que via `isAgentImport`/`needsImportReview`
+- Import d'une offre avec l'IA dans la modale Nouvelle candidature (issue #23, dépend de `jobjourney-api#17` livré) :
+  - Outillage de test frontend créé pour l'occasion (le projet n'en avait aucun) : Vitest + Testing Library + jsdom, `vitest.config.mts`, `vitest.setup.ts`, scripts `npm test` / `npm run test:watch`
+  - `src/lib/job-offer-prefill.ts` — cœur testable de la fonctionnalité : liste blanche des 12 champs extractibles, `mergeOfferPrefill` (stratégie V1 : l'IA ne remplit **que** les champs vides, une saisie utilisateur n'est jamais écrasée), `buildPrefillSummary` (récap texte de ce qui a été prérempli/conservé), `parseOfferErrorMessage` (traduction des codes backend en messages simples, le message brut du serveur n'est jamais réaffiché), `sanitizeOfferUrl`
+  - `src/hooks/use-parse-offer.ts` — `POST /applications/parse-offer` via le client API existant (cookie httpOnly) ; aucune invalidation de cache : l'endpoint ne persiste rien
+  - `new-application-dialog.tsx` : action secondaire « Importer une offre avec l'IA » (pattern disclosure, `aria-expanded`), panneau avec textarea labellisé, mention explicite de l'analyse par IA, bouton « Traiter l'offre » (`aria-busy`, désactivé pendant l'appel, verrou `useRef` contre le double appel), `role="status"` pour le chargement/succès et `role="alert"` pour l'erreur
+  - Le lien et la source déjà saisis sont transmis comme contexte (`offerUrl`/`sourceHint`), une URL inutilisable est retirée au lieu de faire échouer l'extraction
+  - Champs « Type de contrat » et « Notes » ajoutés au formulaire de création (déjà acceptés par `POST /applications`, sinon l'extraction les aurait perdus) + `labels` désormais associés aux inputs (`htmlFor`/`id`)
+  - Métadonnées d'extraction (`confidenceByField`, `uncertainFields`, `warnings`) volontairement non exploitées et jamais envoyées à la création : l'affichage est le périmètre de l'issue #24
+  - Confidentialité : le texte de l'offre ne vit que dans l'état de la modale (aucun `localStorage`/`sessionStorage`, aucun log, aucun analytics), aucune clé fournisseur côté frontend, aucun appel direct au fournisseur IA
+  - 40 tests (parcours manuel inchangé, ouverture/fermeture sans perte, offre vide refusée avant appel réseau, loading, double appel bloqué, contrat d'appel, préremplissage complet/partiel, non-écrasement, champs utilisateur jamais préremplis, erreur API sans perte, aucune création pendant l'analyse, création finale avec les valeurs corrigées)
 
 ## ⏭️ Plan V1 — Fonctionnalités manquantes
 
