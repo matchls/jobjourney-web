@@ -163,16 +163,43 @@ export function mergeOfferPrefill<T extends Record<string, unknown>>(
   return { values, filledFields, keptFields };
 }
 
+// --- Extraction review metadata (issue #24) --------------------------------
+
+// Fields the extraction flagged as worth checking, narrowed to the ones the
+// form actually shows. A name outside the contract (older/newer backend, typo)
+// is dropped rather than rendered: it could not be attached to any input.
+// Filtering the whitelist rather than the payload also removes duplicates and
+// keeps a stable order for free.
+export function normalizeUncertainFields(value: unknown): OfferPrefillField[] {
+  if (!Array.isArray(value)) return [];
+  return OFFER_PREFILL_FIELDS.filter((field) => value.includes(field));
+}
+
+// Free-text notes from the extraction. Blanks and duplicates are removed so
+// the panel never shows an empty bullet or the same sentence twice.
+export function normalizeExtractionWarnings(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const cleaned = value
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => item.trim())
+    .filter((item) => item !== "");
+  return [...new Set(cleaned)];
+}
+
 // Plain-text recap of what the extraction did. Kept next to the merge rule so
 // the wording can never drift from the behaviour it describes, and so the
 // result stays announceable in a live region (no colour-only signal).
 export function buildPrefillSummary({
   filledFields,
   keptFields,
-}: Pick<
-  OfferPrefillOutcome<never>,
-  "filledFields" | "keptFields"
->): string {
+  uncertainFields = [],
+  warnings = [],
+}: Pick<OfferPrefillOutcome<never>, "filledFields" | "keptFields"> & {
+  // Counts only: the details live in the badges and in the warnings panel.
+  // Repeating them here is what makes both readable by a screen reader.
+  uncertainFields?: OfferPrefillField[];
+  warnings?: string[];
+}): string {
   const parts: string[] = [];
 
   if (filledFields.length === 0) {
@@ -194,6 +221,22 @@ export function buildPrefillSummary({
       `Vos saisies ont été conservées pour : ${keptFields
         .map(fieldLabel)
         .join(", ")}.`,
+    );
+  }
+
+  if (uncertainFields.length > 0) {
+    parts.push(
+      `${uncertainFields.length} champ${
+        uncertainFields.length > 1 ? "s sont signalés" : " est signalé"
+      } « À vérifier » : ${uncertainFields.map(fieldLabel).join(", ")}.`,
+    );
+  }
+
+  if (warnings.length > 0) {
+    parts.push(
+      `${warnings.length} point${
+        warnings.length > 1 ? "s signalés" : " signalé"
+      } par l'analyse, au-dessus du formulaire.`,
     );
   }
 

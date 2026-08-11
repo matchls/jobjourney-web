@@ -5,6 +5,8 @@ import {
   OFFER_PREFILL_FIELDS,
   buildPrefillSummary,
   mergeOfferPrefill,
+  normalizeExtractionWarnings,
+  normalizeUncertainFields,
   parseOfferErrorMessage,
   sanitizeOfferUrl,
 } from "@/lib/job-offer-prefill";
@@ -143,6 +145,85 @@ describe("buildPrefillSummary", () => {
 
     expect(summary).toContain("aucun champ vide n'a pu être prérempli");
     expect(summary).not.toContain("conservées");
+  });
+
+  it("announces the fields to check and the warnings count", () => {
+    const summary = buildPrefillSummary({
+      filledFields: ["company"],
+      keptFields: [],
+      uncertainFields: ["salary", "contractType"],
+      warnings: ["Salaire exprimé en fourchette"],
+    });
+
+    expect(summary).toContain("2 champs sont signalés « À vérifier »");
+    expect(summary).toContain("Rémunération");
+    expect(summary).toContain("Type de contrat");
+    expect(summary).toContain("1 point signalé par l'analyse");
+  });
+
+  it("says nothing about review when the extraction is confident", () => {
+    const summary = buildPrefillSummary({
+      filledFields: ["company"],
+      keptFields: [],
+      uncertainFields: [],
+      warnings: [],
+    });
+
+    expect(summary).not.toContain("À vérifier");
+    expect(summary).not.toContain("signalé");
+  });
+});
+
+describe("normalizeUncertainFields", () => {
+  it("keeps the flagged fields the form can actually show", () => {
+    expect(
+      normalizeUncertainFields(["salary", "contractType", "company"]),
+    ).toEqual(["company", "contractType", "salary"]);
+  });
+
+  it("drops names that match no displayed field instead of breaking", () => {
+    expect(
+      normalizeUncertainFields([
+        "salary",
+        "unknownField",
+        "status",
+        "resumeText",
+        42,
+        null,
+      ]),
+    ).toEqual(["salary"]);
+  });
+
+  it("handles a missing or malformed value", () => {
+    expect(normalizeUncertainFields(undefined)).toEqual([]);
+    expect(normalizeUncertainFields(null)).toEqual([]);
+    expect(normalizeUncertainFields("salary")).toEqual([]);
+    expect(normalizeUncertainFields([])).toEqual([]);
+  });
+
+  it("never reports the same field twice", () => {
+    expect(normalizeUncertainFields(["salary", "salary"])).toEqual(["salary"]);
+  });
+});
+
+describe("normalizeExtractionWarnings", () => {
+  it("keeps usable sentences, trimmed and deduplicated", () => {
+    expect(
+      normalizeExtractionWarnings([
+        "  Salaire exprimé en fourchette  ",
+        "",
+        "   ",
+        "Salaire exprimé en fourchette",
+        "Contrat déduit du contexte",
+        7,
+      ]),
+    ).toEqual(["Salaire exprimé en fourchette", "Contrat déduit du contexte"]);
+  });
+
+  it("handles a missing or malformed value", () => {
+    expect(normalizeExtractionWarnings(undefined)).toEqual([]);
+    expect(normalizeExtractionWarnings(null)).toEqual([]);
+    expect(normalizeExtractionWarnings("un warning")).toEqual([]);
   });
 });
 

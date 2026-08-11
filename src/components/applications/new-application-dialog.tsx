@@ -24,14 +24,44 @@ import {
   OFFER_TEXT_TOO_LONG_MESSAGE,
   buildPrefillSummary,
   mergeOfferPrefill,
+  normalizeExtractionWarnings,
+  normalizeUncertainFields,
   parseOfferErrorMessage,
   sanitizeOfferUrl,
 } from "@/lib/job-offer-prefill";
+import type { OfferPrefillField } from "@/lib/job-offer-prefill";
 import { AlertCircle, Plus, Sparkles } from "lucide-react";
 import { ApplicationStatus } from "@/types";
 
 const inputClass =
   "w-full px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring";
+
+// Label of a field the extraction flagged. The wording carries the meaning on
+// its own — the amber chip and the icon only reinforce it — so the status is
+// still readable without colour and is announced with the field it labels.
+function FieldLabel({
+  htmlFor,
+  needsReview,
+  children,
+}: {
+  htmlFor: string;
+  needsReview?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <label
+      htmlFor={htmlFor}
+      className="text-sm font-medium flex items-center gap-1.5 flex-wrap"
+    >
+      {children}
+      {needsReview && (
+        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-1.5 py-0.5">
+          <AlertCircle size={10} aria-hidden="true" />À vérifier
+        </span>
+      )}
+    </label>
+  );
+}
 
 export function NewApplicationDialog({
   defaultStatus,
@@ -67,6 +97,23 @@ export function NewApplicationDialog({
   const [offerText, setOfferText] = useState("");
   const [importError, setImportError] = useState<string | null>(null);
   const [importNotice, setImportNotice] = useState<string | null>(null);
+
+  // Review metadata of the current extraction (issue #24). Session-local by
+  // design: it describes how the offer was read, never the application, so it
+  // is never persisted, never stored and never sent back to the API.
+  // `confidenceByField` is deliberately not kept: a raw score shown next to a
+  // field reads as a fact about the job, and `uncertainFields` already carries
+  // the signal the user needs.
+  const [uncertainFields, setUncertainFields] = useState<OfferPrefillField[]>(
+    [],
+  );
+  const [reviewedFields, setReviewedFields] = useState<OfferPrefillField[]>([]);
+  const [extractionWarnings, setExtractionWarnings] = useState<string[]>([]);
+
+  // A flagged field stops being flagged as soon as the user edits it: they
+  // have looked at it, which is exactly what "À vérifier" asks for.
+  const fieldNeedsReview = (field: OfferPrefillField) =>
+    uncertainFields.includes(field) && !reviewedFields.includes(field);
 
   // Synchronous in-flight lock. `isParsing` only flips on the next render, so
   // two clicks landing in the same tick would both pass a state-based guard.
@@ -106,6 +153,19 @@ export function NewApplicationDialog({
     setOfferText("");
     setImportError(null);
     setImportNotice(null);
+    setUncertainFields([]);
+    setReviewedFields([]);
+    setExtractionWarnings([]);
+  };
+
+  // Single entry point for every human edit on a mapped field: it updates the
+  // value and marks the field as reviewed. A value written by the extraction
+  // goes through setForm directly and therefore never counts as a review.
+  const updateField = (field: OfferPrefillField, value: string) => {
+    setForm((current) => ({ ...current, [field]: value }));
+    setReviewedFields((current) =>
+      current.includes(field) ? current : [...current, field],
+    );
   };
 
   // Opening the panel focuses the textarea; the offer text is deliberately
@@ -152,14 +212,26 @@ export function NewApplicationDialog({
       // here also means no focus is moved after the modal is gone.
       if (requestSession !== sessionRef.current) return;
 
-      // Extraction metadata (confidenceByField, uncertainFields, warnings) is
-      // intentionally not read here: issue #24 owns its display. Only `fields`
-      // is used, and only to fill fields the user left empty.
+      // Only `fields` feeds the form, and only where the user left a blank.
       const fields = result?.fields;
       const outcome = mergeOfferPrefill(formRef.current, fields);
       setForm((current) => mergeOfferPrefill(current, fields).values);
 
-      setImportNotice(buildPrefillSummary(outcome));
+      // Review metadata replaces (never merges with) the previous run's: a new
+      // extraction re-states everything it is unsure about.
+      const flagged = normalizeUncertainFields(result?.uncertainFields);
+      const warnings = normalizeExtractionWarnings(result?.warnings);
+      setUncertainFields(flagged);
+      setReviewedFields([]);
+      setExtractionWarnings(warnings);
+
+      setImportNotice(
+        buildPrefillSummary({
+          ...outcome,
+          uncertainFields: flagged,
+          warnings,
+        }),
+      );
       setShowImport(false);
       companyRef.current?.focus();
     } catch (parseError) {
@@ -328,61 +400,93 @@ export function NewApplicationDialog({
           )}
         </div>
 
+        {/* Ambiguities reported by the extraction. Informative, never
+            blocking: creating the application does not require solving them,
+            and the panel is styled apart from the system error above. */}
+        {extractionWarnings.length > 0 && (
+          <section
+            aria-labelledby="extraction-warnings-title"
+            className="rounded-md border border-amber-200 bg-amber-50 p-3 space-y-1"
+          >
+            <h3
+              id="extraction-warnings-title"
+              className="text-xs font-semibold text-amber-800"
+            >
+              Points signalés par l&apos;analyse
+            </h3>
+            <ul className="list-disc pl-4 text-xs text-amber-700 space-y-0.5">
+              {extractionWarnings.map((warning) => (
+                <li key={warning}>{warning}</li>
+              ))}
+            </ul>
+            <p className="text-[11px] text-amber-700">
+              Ces informations sont indicatives : vous pouvez créer la
+              candidature sans les traiter.
+            </p>
+          </section>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
           <div className="space-y-1">
-            <label htmlFor="application-company" className="text-sm font-medium">
+            <FieldLabel
+              htmlFor="application-company"
+              needsReview={fieldNeedsReview("company")}
+            >
               Entreprise *
-            </label>
+            </FieldLabel>
             <input
               id="application-company"
               ref={companyRef}
               className={inputClass}
               value={form.company}
-              onChange={(e) => setForm({ ...form, company: e.target.value })}
+              onChange={(e) => updateField("company", e.target.value)}
               required
             />
           </div>
           <div className="space-y-1">
-            <label
+            <FieldLabel
               htmlFor="application-position"
-              className="text-sm font-medium"
+              needsReview={fieldNeedsReview("position")}
             >
               Poste *
-            </label>
+            </FieldLabel>
             <input
               id="application-position"
               className={inputClass}
               value={form.position}
-              onChange={(e) => setForm({ ...form, position: e.target.value })}
+              onChange={(e) => updateField("position", e.target.value)}
               required
             />
           </div>
           <div className="space-y-1">
-            <label htmlFor="application-source" className="text-sm font-medium">
+            <FieldLabel
+              htmlFor="application-source"
+              needsReview={fieldNeedsReview("source")}
+            >
               Source <span className="text-muted-foreground">(optionnel)</span>
-            </label>
+            </FieldLabel>
             <input
               id="application-source"
               className={inputClass}
               placeholder="LinkedIn, Welcome to the Jungle..."
               value={form.source}
-              onChange={(e) => setForm({ ...form, source: e.target.value })}
+              onChange={(e) => updateField("source", e.target.value)}
             />
           </div>
           <div className="space-y-1">
-            <label
+            <FieldLabel
               htmlFor="application-offer-url"
-              className="text-sm font-medium"
+              needsReview={fieldNeedsReview("offerUrl")}
             >
               Lien offre{" "}
               <span className="text-muted-foreground">(optionnel)</span>
-            </label>
+            </FieldLabel>
             <input
               id="application-offer-url"
               className={inputClass}
               type="url"
               value={form.offerUrl}
-              onChange={(e) => setForm({ ...form, offerUrl: e.target.value })}
+              onChange={(e) => updateField("offerUrl", e.target.value)}
             />
           </div>
           <div className="space-y-1">
@@ -403,137 +507,128 @@ export function NewApplicationDialog({
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
-              <label
+              <FieldLabel
                 htmlFor="application-location"
-                className="text-sm font-medium"
+                needsReview={fieldNeedsReview("location")}
               >
                 Localisation{" "}
                 <span className="text-muted-foreground">(optionnel)</span>
-              </label>
+              </FieldLabel>
               <input
                 id="application-location"
                 className={inputClass}
                 value={form.location}
-                onChange={(e) =>
-                  setForm({ ...form, location: e.target.value })
-                }
+                onChange={(e) => updateField("location", e.target.value)}
               />
             </div>
             <div className="space-y-1">
-              <label
+              <FieldLabel
                 htmlFor="application-salary"
-                className="text-sm font-medium"
+                needsReview={fieldNeedsReview("salary")}
               >
                 Rémunération{" "}
                 <span className="text-muted-foreground">(optionnel)</span>
-              </label>
+              </FieldLabel>
               <input
                 id="application-salary"
                 className={inputClass}
                 value={form.salary}
-                onChange={(e) => setForm({ ...form, salary: e.target.value })}
+                onChange={(e) => updateField("salary", e.target.value)}
               />
             </div>
           </div>
           <div className="space-y-1">
-            <label
+            <FieldLabel
               htmlFor="application-contract-type"
-              className="text-sm font-medium"
+              needsReview={fieldNeedsReview("contractType")}
             >
               Type de contrat{" "}
               <span className="text-muted-foreground">(optionnel)</span>
-            </label>
+            </FieldLabel>
             <input
               id="application-contract-type"
               className={inputClass}
               value={form.contractType}
-              onChange={(e) =>
-                setForm({ ...form, contractType: e.target.value })
-              }
+              onChange={(e) => updateField("contractType", e.target.value)}
             />
           </div>
           <div className="space-y-1">
-            <label
+            <FieldLabel
               htmlFor="application-job-description"
-              className="text-sm font-medium"
+              needsReview={fieldNeedsReview("jobDescription")}
             >
               Description du poste{" "}
               <span className="text-muted-foreground">(optionnel)</span>
-            </label>
+            </FieldLabel>
             <textarea
               id="application-job-description"
               className={inputClass}
               rows={3}
               value={form.jobDescription}
-              onChange={(e) =>
-                setForm({ ...form, jobDescription: e.target.value })
-              }
+              onChange={(e) => updateField("jobDescription", e.target.value)}
             />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
-              <label
+              <FieldLabel
                 htmlFor="application-contact-name"
-                className="text-sm font-medium"
+                needsReview={fieldNeedsReview("contactName")}
               >
                 Nom du contact{" "}
                 <span className="text-muted-foreground">(optionnel)</span>
-              </label>
+              </FieldLabel>
               <input
                 id="application-contact-name"
                 className={inputClass}
                 value={form.contactName}
-                onChange={(e) =>
-                  setForm({ ...form, contactName: e.target.value })
-                }
+                onChange={(e) => updateField("contactName", e.target.value)}
               />
             </div>
             <div className="space-y-1">
-              <label
+              <FieldLabel
                 htmlFor="application-contact-role"
-                className="text-sm font-medium"
+                needsReview={fieldNeedsReview("contactRole")}
               >
                 Rôle du contact{" "}
                 <span className="text-muted-foreground">(optionnel)</span>
-              </label>
+              </FieldLabel>
               <input
                 id="application-contact-role"
                 className={inputClass}
                 value={form.contactRole}
-                onChange={(e) =>
-                  setForm({ ...form, contactRole: e.target.value })
-                }
+                onChange={(e) => updateField("contactRole", e.target.value)}
               />
             </div>
           </div>
           <div className="space-y-1">
-            <label
+            <FieldLabel
               htmlFor="application-contact-email"
-              className="text-sm font-medium"
+              needsReview={fieldNeedsReview("contactEmail")}
             >
               Email du contact{" "}
               <span className="text-muted-foreground">(optionnel)</span>
-            </label>
+            </FieldLabel>
             <input
               id="application-contact-email"
               className={inputClass}
               type="email"
               value={form.contactEmail}
-              onChange={(e) =>
-                setForm({ ...form, contactEmail: e.target.value })
-              }
+              onChange={(e) => updateField("contactEmail", e.target.value)}
             />
           </div>
           <div className="space-y-1">
-            <label htmlFor="application-notes" className="text-sm font-medium">
+            <FieldLabel
+              htmlFor="application-notes"
+              needsReview={fieldNeedsReview("notes")}
+            >
               Notes <span className="text-muted-foreground">(optionnel)</span>
-            </label>
+            </FieldLabel>
             <textarea
               id="application-notes"
               className={inputClass}
               rows={3}
               value={form.notes}
-              onChange={(e) => setForm({ ...form, notes: e.target.value })}
+              onChange={(e) => updateField("notes", e.target.value)}
             />
           </div>
           <div className="space-y-1">

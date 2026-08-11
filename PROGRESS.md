@@ -66,6 +66,15 @@
   - Confidentialité : le texte de l'offre ne vit que dans l'état de la modale (aucun `localStorage`/`sessionStorage`, aucun log, aucun analytics), aucune clé fournisseur côté frontend, aucun appel direct au fournisseur IA
   - 43 tests (parcours manuel inchangé, ouverture/fermeture sans perte, offre vide refusée avant appel réseau, loading, double appel bloqué, contrat d'appel, préremplissage complet/partiel, non-écrasement, champs utilisateur jamais préremplis, erreur API sans perte, aucune création pendant l'analyse, création finale avec les valeurs corrigées, réponse et erreur tardives ignorées après fermeture)
 
+- Vérification des champs extraits par IA avant création (issue #24, suite de #23) :
+  - Métadonnées exploitées côté modale uniquement : `uncertainFields` et `warnings` (le `confidenceByField` est volontairement ignoré — un pourcentage affiché à côté d'un champ se lit comme un fait sur l'offre, alors que `uncertainFields` porte déjà le signal utile)
+  - `job-offer-prefill.ts` étendu (pas de structure parallèle) : `normalizeUncertainFields` filtre les noms reçus contre la liste blanche existante `OFFER_PREFILL_FIELDS` — un nom inconnu est ignoré au lieu de casser le rendu —, `normalizeExtractionWarnings` nettoie/dédoublonne, et `buildPrefillSummary` annonce en plus le nombre de champs à vérifier et de points signalés (lecteur d'écran)
+  - Indicateur textuel « À vérifier » placé dans le `label` du champ concerné : il fait donc partie du nom accessible annoncé avec le champ, et le texte porte le sens (la pastille ambre et l'icône ne sont que du renfort). Le champ reste valide et n'empêche jamais la création
+  - Encart « Points signalés par l'analyse » au-dessus du formulaire, non bloquant et visuellement distinct de l'erreur système ; masqué si la liste est vide
+  - Champ considéré comme revu : toute saisie humaine passe par `updateField()`, qui met à jour la valeur **et** marque le champ revu. Un préremplissage IA passe par `setForm` et ne compte donc jamais comme une validation humaine. Le retrait est local au champ édité, sans nouvel appel IA
+  - Fermeture de la modale : champs incertains, champs revus et warnings sont réinitialisés comme le reste de l'état d'import ; le mécanisme anti-réponse-tardive de #23 protège aussi ces métadonnées
+  - Aucune persistance : les métadonnées ne sont ni envoyées à `POST /applications`, ni ajoutées au modèle `Application`, ni stockées
+
 ## ⏭️ Plan V1 — Fonctionnalités manquantes
 
 ### 1. Bouton "+" Kanban (30 min)
