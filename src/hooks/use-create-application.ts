@@ -10,8 +10,10 @@ export type CreateApplicationInput = {
   status?: ApplicationStatus;
   appliedAt?: string;
   location?: string;
+  contractType?: string;
   salary?: string;
   jobDescription?: string;
+  notes?: string;
   contactName?: string;
   contactRole?: string;
   contactEmail?: string;
