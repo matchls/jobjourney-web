@@ -284,9 +284,11 @@ export default function ApplicationDetailPage({
 
       {/* Informations */}
       {(application.location ||
+        application.contractType ||
         application.salary ||
         application.offerUrl ||
         application.jobDescription ||
+        application.notes ||
         application.contactName ||
         application.contactRole ||
         application.contactEmail ||
@@ -305,6 +307,16 @@ export default function ApplicationDetailPage({
                   <p className="text-xs text-muted-foreground">Localisation</p>
                   <p className="text-sm text-foreground">
                     {application.location}
+                  </p>
+                </div>
+              )}
+              {application.contractType && (
+                <div>
+                  <p className="text-xs text-muted-foreground">
+                    Type de contrat
+                  </p>
+                  <p className="text-sm text-foreground">
+                    {application.contractType}
                   </p>
                 </div>
               )}
@@ -386,6 +398,19 @@ export default function ApplicationDetailPage({
                   </p>
                 )}
             </div>
+            {/* Notes personnelles : ce ne sont pas des détails de l'offre, d'où
+                une carte à part. Pleine largeur pour laisser respirer un texte
+                libre potentiellement long. */}
+            {application.notes && (
+              <div className="bg-card border border-border rounded-xl p-4 space-y-3 sm:col-span-2">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Notes
+                </p>
+                <p className="text-sm text-foreground whitespace-pre-line">
+                  {application.notes}
+                </p>
+              </div>
+            )}
           </div>
         </section>
       )}

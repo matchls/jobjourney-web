@@ -75,6 +75,12 @@
   - Fermeture de la modale : champs incertains, champs revus et warnings sont réinitialisés comme le reste de l'état d'import ; le mécanisme anti-réponse-tardive de #23 protège aussi ces métadonnées
   - Aucune persistance : les métadonnées ne sont ni envoyées à `POST /applications`, ni ajoutées au modèle `Application`, ni stockées
 
+- Type de contrat et notes sur la fiche candidature (issue #27, remontée par l'audit `jobjourney-api#18`) :
+  - `contractType` affiché dans la carte « Détails de l'offre », juste après la localisation
+  - `notes` affichées dans une carte dédiée en pleine largeur (`sm:col-span-2`) avec `whitespace-pre-line` : ce sont des notes personnelles sur la candidature, pas un détail de l'annonce, d'où une carte à part
+  - Condition d'affichage de la section « Informations » étendue à ces deux champs — sans ça, une candidature n'ayant que des notes gardait la section masquée
+  - Premiers tests de rendu de la fiche (`page.test.tsx`) : hooks de données et sections entretiens/préparation mockés, `use(params)` résolu via un `act` awaité
+
 ## ⏭️ Plan V1 — Fonctionnalités manquantes
 
 ### 1. Bouton "+" Kanban (30 min)
