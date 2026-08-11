@@ -29,14 +29,34 @@ function jsonResponse(body: unknown, status = 200): Response {
   } as unknown as Response;
 }
 
-function extractionResponse(fields: Record<string, unknown>) {
+type ExtractionMeta = {
+  uncertainFields?: unknown;
+  warnings?: unknown;
+  confidenceByField?: unknown;
+};
+
+function extractionResponse(
+  fields: Record<string, unknown>,
+  meta: ExtractionMeta = {},
+) {
   return jsonResponse({
     fields,
-    // Extraction metadata: available in the contract, owned by issue #24.
-    confidenceByField: { company: 0.9 },
-    uncertainFields: ["salary"],
-    warnings: ["Salaire exprimé en fourchette"],
+    confidenceByField: meta.confidenceByField ?? { company: 0.9 },
+    uncertainFields: meta.uncertainFields ?? ["salary"],
+    warnings: meta.warnings ?? ["Salaire exprimé en fourchette"],
   });
+}
+
+const WARNINGS_PANEL = /Points signalés par l'analyse/;
+
+// A flagged field carries "À vérifier" inside its own label, so the marker is
+// part of the accessible name announced with the field.
+function expectFlagged(label: RegExp) {
+  expect(field(label)).toHaveAccessibleName(/À vérifier/);
+}
+
+function expectNotFlagged(label: RegExp) {
+  expect(field(label)).not.toHaveAccessibleName(/À vérifier/);
 }
 
 function callsTo(path: string, method = "POST"): FetchCall[] {
@@ -510,6 +530,10 @@ describe("NewApplicationDialog — extraction outliving the modal", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("");
 
+    // No review metadata survives from the previous session.
+    expect(screen.queryByText(WARNINGS_PANEL)).not.toBeInTheDocument();
+    expect(screen.queryByText("À vérifier")).not.toBeInTheDocument();
+
     // The import panel reopens empty and immediately usable.
     expect(importButton()).toHaveAttribute("aria-expanded", "false");
     const textarea = await openImportPanel(user);
@@ -562,6 +586,247 @@ describe("NewApplicationDialog — extraction outliving the modal", () => {
     await waitFor(() => expect(field("Entreprise *")).toHaveValue("ACME"));
     expect(field(/^Localisation/)).toHaveValue("Paris");
     expect(screen.getByRole("status")).toHaveTextContent(/Analyse terminée/);
+  });
+});
+
+describe("NewApplicationDialog — reviewing the extracted fields", () => {
+  // Runs a complete extraction and returns once the form has been prefilled.
+  async function runExtraction(
+    fields: Record<string, unknown>,
+    meta: ExtractionMeta = {},
+  ) {
+    parseOfferHandler = async () => extractionResponse(fields, meta);
+
+    const { user } = renderDialog();
+    await openDialog(user);
+    await user.type(await openImportPanel(user), OFFER_TEXT);
+    await user.click(processButton());
+
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent(/Analyse terminée/),
+    );
+
+    return { user };
+  }
+
+  it("marks only the fields listed in uncertainFields", async () => {
+    await runExtraction(
+      { company: "ACME", position: "Développeur", salary: "45-55k€" },
+      { uncertainFields: ["salary"] },
+    );
+
+    expectFlagged(/^Rémunération/);
+    expectNotFlagged(/^Entreprise/);
+    expectNotFlagged(/^Poste/);
+    expect(screen.getAllByText("À vérifier")).toHaveLength(1);
+  });
+
+  it("marks several fields at once", async () => {
+    await runExtraction(
+      { company: "ACME", contractType: "CDI", salary: "45k" },
+      { uncertainFields: ["company", "contractType", "salary"] },
+    );
+
+    expectFlagged(/^Entreprise/);
+    expectFlagged(/^Type de contrat/);
+    expectFlagged(/^Rémunération/);
+    expectNotFlagged(/^Poste/);
+  });
+
+  it("marks nothing when the extraction is confident", async () => {
+    await runExtraction(
+      { company: "ACME", position: "Développeur" },
+      { uncertainFields: [], warnings: [] },
+    );
+
+    expect(screen.queryByText("À vérifier")).not.toBeInTheDocument();
+    expect(screen.queryByText(WARNINGS_PANEL)).not.toBeInTheDocument();
+    expect(field(/^Entreprise/)).toHaveValue("ACME");
+  });
+
+  it("ignores a flagged name that matches no displayed field", async () => {
+    await runExtraction(
+      { company: "ACME" },
+      { uncertainFields: ["status", "resumeText", "unknownField", "company"] },
+    );
+
+    expectFlagged(/^Entreprise/);
+    expect(screen.getAllByText("À vérifier")).toHaveLength(1);
+    expect(field(/^Date de candidature/)).toHaveValue("");
+  });
+
+  it("groups the warnings in a non-blocking panel", async () => {
+    await runExtraction(
+      { company: "ACME" },
+      {
+        warnings: [
+          "Salaire exprimé en fourchette",
+          "Entreprise possiblement un cabinet de recrutement",
+        ],
+      },
+    );
+
+    expect(screen.getByText(WARNINGS_PANEL)).toBeInTheDocument();
+    expect(
+      screen.getByText("Salaire exprimé en fourchette"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Entreprise possiblement un cabinet de recrutement"),
+    ).toBeInTheDocument();
+    // Informative, not a system error.
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("shows no panel when there is no warning", async () => {
+    await runExtraction({ company: "ACME" }, { warnings: [] });
+
+    expect(screen.queryByText(WARNINGS_PANEL)).not.toBeInTheDocument();
+  });
+
+  it("clears only the edited field's marker, without calling the API again", async () => {
+    const { user } = await runExtraction(
+      { company: "ACME", contractType: "CDI", salary: "45k" },
+      { uncertainFields: ["company", "contractType", "salary"] },
+    );
+
+    await user.type(field(/^Rémunération/), " brut");
+
+    expectNotFlagged(/^Rémunération/);
+    expect(field(/^Rémunération/)).toHaveValue("45k brut");
+    // The other flagged fields are untouched.
+    expectFlagged(/^Entreprise/);
+    expectFlagged(/^Type de contrat/);
+    // Reviewing is a local decision: no second extraction is triggered.
+    expect(callsTo(PARSE_OFFER_URL)).toHaveLength(1);
+  });
+
+  it("keeps the marker on a field the extraction filled but nobody touched", async () => {
+    const { user } = await runExtraction(
+      { company: "ACME", salary: "45k" },
+      { uncertainFields: ["company", "salary"] },
+    );
+
+    await user.type(field(/^Poste/), "Développeur");
+
+    expectFlagged(/^Entreprise/);
+    expectFlagged(/^Rémunération/);
+  });
+
+  it("creates the application while a field is still flagged", async () => {
+    const { user } = await runExtraction(
+      { company: "ACME", position: "Développeur", salary: "45k" },
+      { uncertainFields: ["salary"] },
+    );
+
+    expectFlagged(/^Rémunération/);
+    expect(submitButton()).toBeEnabled();
+
+    await user.click(submitButton());
+    await waitFor(() => expect(callsTo(APPLICATIONS_URL)).toHaveLength(1));
+
+    const payload = bodyOf(callsTo(APPLICATIONS_URL)[0]);
+    expect(payload).toMatchObject({ company: "ACME", salary: "45k" });
+    expect(payload).not.toHaveProperty("uncertainFields");
+    expect(payload).not.toHaveProperty("warnings");
+    expect(payload).not.toHaveProperty("confidenceByField");
+  });
+
+  it("replaces the previous review metadata on a second extraction", async () => {
+    const { user } = await runExtraction(
+      { company: "ACME" },
+      { uncertainFields: ["company"], warnings: ["Premier avertissement"] },
+    );
+
+    expectFlagged(/^Entreprise/);
+
+    parseOfferHandler = async () =>
+      extractionResponse(
+        { position: "Développeur" },
+        { uncertainFields: ["position"], warnings: [] },
+      );
+
+    await user.click(importButton());
+    await user.click(processButton());
+
+    await waitFor(() => expect(field(/^Poste/)).toHaveValue("Développeur"));
+
+    expectFlagged(/^Poste/);
+    expectNotFlagged(/^Entreprise/);
+    expect(screen.queryByText("Premier avertissement")).not.toBeInTheDocument();
+  });
+
+  it("drops every marker and warning when the dialog is closed and reopened", async () => {
+    const { user } = await runExtraction(
+      { company: "ACME", salary: "45k" },
+      { uncertainFields: ["company", "salary"] },
+    );
+
+    expectFlagged(/^Entreprise/);
+    expect(screen.getByText(WARNINGS_PANEL)).toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+
+    await openDialog(user);
+
+    expect(screen.queryByText("À vérifier")).not.toBeInTheDocument();
+    expect(screen.queryByText(WARNINGS_PANEL)).not.toBeInTheDocument();
+    expect(field(/^Entreprise/)).toHaveValue("");
+  });
+
+  it("shows no ghost marker when a late result lands after the dialog closed", async () => {
+    let release!: (value: Response) => void;
+    parseOfferHandler = () =>
+      new Promise<Response>((resolve) => {
+        release = resolve;
+      });
+
+    const { user } = renderDialog();
+    await openDialog(user);
+    await user.type(await openImportPanel(user), OFFER_TEXT);
+    await user.click(processButton());
+    await waitFor(() => expect(callsTo(PARSE_OFFER_URL)).toHaveLength(1));
+
+    await user.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+
+    await act(async () => {
+      release(
+        extractionResponse(
+          { company: "Entreprise IA" },
+          {
+            uncertainFields: ["company", "salary"],
+            warnings: ["Avertissement fantôme"],
+          },
+        ),
+      );
+    });
+
+    await openDialog(user);
+
+    expect(screen.queryByText("À vérifier")).not.toBeInTheDocument();
+    expect(screen.queryByText(WARNINGS_PANEL)).not.toBeInTheDocument();
+    expect(screen.queryByText("Avertissement fantôme")).not.toBeInTheDocument();
+    expect(field(/^Entreprise/)).toHaveValue("");
+  });
+
+  it("shows no marker at all on the purely manual flow", async () => {
+    const { user } = renderDialog();
+    await openDialog(user);
+
+    await user.type(field("Entreprise *"), "ACME");
+    await user.type(field("Poste *"), "Développeur");
+
+    expect(screen.queryByText("À vérifier")).not.toBeInTheDocument();
+    expect(screen.queryByText(WARNINGS_PANEL)).not.toBeInTheDocument();
+
+    await user.click(submitButton());
+    await waitFor(() => expect(callsTo(APPLICATIONS_URL)).toHaveLength(1));
+    expect(callsTo(PARSE_OFFER_URL)).toHaveLength(0);
   });
 });
 
