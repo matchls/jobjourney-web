@@ -71,6 +71,10 @@ export function NewApplicationDialog({
   // Synchronous in-flight lock. `isParsing` only flips on the next render, so
   // two clicks landing in the same tick would both pass a state-based guard.
   const parsingRef = useRef(false);
+  // Generation of the current modal session. Closing the dialog bumps it, so
+  // an extraction started before the close can be recognised as stale when it
+  // finally answers — and dropped instead of repopulating a reset form.
+  const sessionRef = useRef(0);
   const offerTextRef = useRef<HTMLTextAreaElement>(null);
   const companyRef = useRef<HTMLInputElement>(null);
   // Latest committed form values, so a merge started before the user edited a
@@ -84,9 +88,20 @@ export function NewApplicationDialog({
   const { mutateAsync: createApplication, isPending, error } =
     useCreateApplication();
   const { mutateAsync: createInterviewStep } = useCreateInterviewStep();
-  const { mutateAsync: parseOffer, isPending: isParsing } = useParseOffer();
+  const {
+    mutateAsync: parseOffer,
+    isPending: isParsing,
+    reset: resetParseOfferState,
+  } = useParseOffer();
 
   const resetImport = () => {
+    // Ends the current extraction session: a request still in flight now
+    // belongs to the past and must not touch the UI when it answers. The
+    // mutation state is reset too, otherwise an orphan request would keep the
+    // button stuck on "Analyse en cours..." for the next session.
+    sessionRef.current += 1;
+    parsingRef.current = false;
+    resetParseOfferState();
     setShowImport(false);
     setOfferText("");
     setImportError(null);
@@ -120,6 +135,10 @@ export function NewApplicationDialog({
     }
 
     parsingRef.current = true;
+    // Captured before the await: everything below only applies if the modal is
+    // still on the same session when the answer comes back.
+    const requestSession = sessionRef.current;
+
     try {
       const result = await parseOffer({
         offerText: trimmed,
@@ -127,6 +146,11 @@ export function NewApplicationDialog({
         offerUrl: sanitizeOfferUrl(formRef.current.offerUrl),
         sourceHint: formRef.current.source?.trim() || undefined,
       });
+
+      // The dialog was closed (or reset) while the extraction was running:
+      // this answer belongs to a session that no longer exists. Dropping it
+      // here also means no focus is moved after the modal is gone.
+      if (requestSession !== sessionRef.current) return;
 
       // Extraction metadata (confidenceByField, uncertainFields, warnings) is
       // intentionally not read here: issue #24 owns its display. Only `fields`
@@ -139,12 +163,17 @@ export function NewApplicationDialog({
       setShowImport(false);
       companyRef.current?.focus();
     } catch (parseError) {
+      // A late failure from a closed session is silent too: there is nobody
+      // left to warn, and the next session must open on a clean modal.
+      if (requestSession !== sessionRef.current) return;
+
       // Neither the pasted text nor the already filled fields are cleared:
       // the user can retry or simply carry on manually.
       setImportError(parseOfferErrorMessage(parseError));
       offerTextRef.current?.focus();
     } finally {
-      parsingRef.current = false;
+      // A stale request must not unlock the session that replaced it.
+      if (requestSession === sessionRef.current) parsingRef.current = false;
     }
   };
 

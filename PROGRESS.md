@@ -62,8 +62,9 @@
   - Le lien et la source déjà saisis sont transmis comme contexte (`offerUrl`/`sourceHint`), une URL inutilisable est retirée au lieu de faire échouer l'extraction
   - Champs « Type de contrat » et « Notes » ajoutés au formulaire de création (déjà acceptés par `POST /applications`, sinon l'extraction les aurait perdus) + `labels` désormais associés aux inputs (`htmlFor`/`id`)
   - Métadonnées d'extraction (`confidenceByField`, `uncertainFields`, `warnings`) volontairement non exploitées et jamais envoyées à la création : l'affichage est le périmètre de l'issue #24
+  - Réponse tardive neutralisée : chaque extraction capture une génération de session (`useRef`) avant l'`await` ; fermer la modale incrémente cette génération, remet le verrou à zéro et appelle `reset()` sur la mutation. Une réponse **ou** une erreur qui arrive après la fermeture est ignorée (pas de `setForm`, pas de message, pas de déplacement de focus), donc la réouverture part toujours d'un formulaire vide
   - Confidentialité : le texte de l'offre ne vit que dans l'état de la modale (aucun `localStorage`/`sessionStorage`, aucun log, aucun analytics), aucune clé fournisseur côté frontend, aucun appel direct au fournisseur IA
-  - 40 tests (parcours manuel inchangé, ouverture/fermeture sans perte, offre vide refusée avant appel réseau, loading, double appel bloqué, contrat d'appel, préremplissage complet/partiel, non-écrasement, champs utilisateur jamais préremplis, erreur API sans perte, aucune création pendant l'analyse, création finale avec les valeurs corrigées)
+  - 43 tests (parcours manuel inchangé, ouverture/fermeture sans perte, offre vide refusée avant appel réseau, loading, double appel bloqué, contrat d'appel, préremplissage complet/partiel, non-écrasement, champs utilisateur jamais préremplis, erreur API sans perte, aucune création pendant l'analyse, création finale avec les valeurs corrigées, réponse et erreur tardives ignorées après fermeture)
 
 ## ⏭️ Plan V1 — Fonctionnalités manquantes
 

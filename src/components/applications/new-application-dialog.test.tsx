@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NewApplicationDialog } from "@/components/applications/new-application-dialog";
@@ -470,6 +470,98 @@ describe("NewApplicationDialog — offer extraction", () => {
     expect(payload).not.toHaveProperty("warnings");
     expect(payload).not.toHaveProperty("offerText");
     expect(JSON.stringify(payload)).not.toContain(OFFER_TEXT);
+  });
+});
+
+describe("NewApplicationDialog — extraction outliving the modal", () => {
+  // Starts an extraction that stays pending, then closes the dialog. Returns
+  // the deferred resolver so each test decides how that late answer lands.
+  async function startExtractionThenCloseDialog() {
+    let release!: (value: Response) => void;
+    parseOfferHandler = () =>
+      new Promise<Response>((resolve) => {
+        release = resolve;
+      });
+
+    const { user } = renderDialog();
+    await openDialog(user);
+    await user.type(field("Entreprise *"), "ACME");
+    await user.type(await openImportPanel(user), OFFER_TEXT);
+    await user.click(processButton());
+
+    await waitFor(() => expect(callsTo(PARSE_OFFER_URL)).toHaveLength(1));
+
+    await user.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+
+    return { user, release };
+  }
+
+  async function expectCleanReopenedDialog(
+    user: ReturnType<typeof userEvent.setup>,
+  ) {
+    await openDialog(user);
+
+    expect(field("Entreprise *")).toHaveValue("");
+    expect(field("Poste *")).toHaveValue("");
+    expect(field(/^Localisation/)).toHaveValue("");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("");
+
+    // The import panel reopens empty and immediately usable.
+    expect(importButton()).toHaveAttribute("aria-expanded", "false");
+    const textarea = await openImportPanel(user);
+    expect(textarea).toHaveValue("");
+    expect(processButton()).toBeEnabled();
+  }
+
+  it("ignores a result that arrives after the dialog was closed", async () => {
+    const { user, release } = await startExtractionThenCloseDialog();
+
+    await act(async () => {
+      release(
+        extractionResponse({
+          company: "Entreprise IA",
+          position: "Poste IA",
+          location: "Lyon",
+        }),
+      );
+    });
+
+    await expectCleanReopenedDialog(user);
+  });
+
+  it("ignores a failure that arrives after the dialog was closed", async () => {
+    const { user, release } = await startExtractionThenCloseDialog();
+
+    await act(async () => {
+      release(jsonResponse({ error: { code: "extraction_unavailable" } }, 502));
+    });
+
+    await expectCleanReopenedDialog(user);
+  });
+
+  it("still applies a result when the dialog stays open", async () => {
+    let release!: (value: Response) => void;
+    parseOfferHandler = () =>
+      new Promise<Response>((resolve) => {
+        release = resolve;
+      });
+
+    const { user } = renderDialog();
+    await openDialog(user);
+    await user.type(await openImportPanel(user), OFFER_TEXT);
+    await user.click(processButton());
+
+    await act(async () => {
+      release(extractionResponse({ company: "ACME", location: "Paris" }));
+    });
+
+    await waitFor(() => expect(field("Entreprise *")).toHaveValue("ACME"));
+    expect(field(/^Localisation/)).toHaveValue("Paris");
+    expect(screen.getByRole("status")).toHaveTextContent(/Analyse terminée/);
   });
 });
 
