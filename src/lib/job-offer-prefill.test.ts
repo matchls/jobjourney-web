@@ -384,6 +384,22 @@ describe("detectOfferUrlOnly", () => {
     });
   });
 
+  it("accepts an explicit http:// scheme just like https://", () => {
+    // Both schemes are safe to store and to open, so an offer link served
+    // over plain http is recognised exactly the same way.
+    expect(detectOfferUrlOnly("http://linkedin.com/jobs/view/1")).toEqual({
+      url: "http://linkedin.com/jobs/view/1",
+      source: "LinkedIn",
+    });
+    expect(detectOfferUrlOnly("http://www.linkedin.com/jobs/view/1")).toEqual({
+      url: "http://www.linkedin.com/jobs/view/1",
+      source: "LinkedIn",
+    });
+    expect(detectOfferUrlOnly("http://jobs.example.com/42")).toEqual({
+      url: "http://jobs.example.com/42",
+    });
+  });
+
   it("does not claim a paste that contains anything besides the link", () => {
     expect(
       detectOfferUrlOnly("Voir l'offre https://www.linkedin.com/jobs/view/1"),
@@ -401,8 +417,10 @@ describe("detectOfferUrlOnly", () => {
   it("does not claim anything that is not a safe http(s) url", () => {
     expect(detectOfferUrlOnly("")).toBeNull();
     expect(detectOfferUrlOnly("   ")).toBeNull();
-    // A scheme is required: a bare domain is too ambiguous to act on.
+    // An explicit http:// or https:// scheme is required: a bare domain is
+    // too ambiguous to act on.
     expect(detectOfferUrlOnly("www.linkedin.com/jobs/view/1")).toBeNull();
+    expect(detectOfferUrlOnly("linkedin.com/jobs/view/1")).toBeNull();
     expect(detectOfferUrlOnly("javascript:alert(1)")).toBeNull();
     expect(detectOfferUrlOnly("ftp://example.com/offre")).toBeNull();
     expect(

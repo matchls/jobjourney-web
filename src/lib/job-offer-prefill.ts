@@ -189,10 +189,11 @@ export type OfferUrlDetection = {
 // read: handling it here saves a pointless AI call and gives an instant,
 // reproducible result instead of a probabilistic one.
 //
-// The scheme is required on purpose: `https://…` is what a browser address bar
-// and a "copy link" button produce, while a bare `linkedin.com` sitting in a
-// sentence would be ambiguous. Any whitespace means the paste is a text — even
-// a very short one — and belongs to the AI workflow.
+// An explicit `http://` or `https://` scheme is required on purpose: it is
+// what a browser address bar and a "copy link" button produce, while a bare
+// `linkedin.com` sitting in a sentence would be ambiguous. Any whitespace
+// means the paste is a text — even a very short one — and belongs to the AI
+// workflow.
 export function detectOfferUrlOnly(text: string): OfferUrlDetection | null {
   const trimmed = text.trim();
   if (trimmed === "" || /\s/.test(trimmed)) return null;
