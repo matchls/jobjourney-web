@@ -4,11 +4,15 @@ import {
   MAX_OFFER_TEXT_LENGTH,
   OFFER_PREFILL_FIELDS,
   buildPrefillSummary,
+  buildUrlPrefillSummary,
+  detectOfferUrlOnly,
   mergeOfferPrefill,
   normalizeExtractionWarnings,
   normalizeUncertainFields,
+  offerUrlPrefillFields,
   parseOfferErrorMessage,
   sanitizeOfferUrl,
+  sourceFromOfferUrl,
 } from "@/lib/job-offer-prefill";
 
 const emptyForm = {
@@ -291,6 +295,200 @@ describe("sanitizeOfferUrl", () => {
     expect(sanitizeOfferUrl("linkedin")).toBeUndefined();
     expect(sanitizeOfferUrl("javascript:alert(1)")).toBeUndefined();
     expect(sanitizeOfferUrl("https://user:pass@example.com")).toBeUndefined();
+  });
+});
+
+describe("sourceFromOfferUrl", () => {
+  it("names the known boards from their canonical domain", () => {
+    expect(sourceFromOfferUrl("https://linkedin.com/jobs/view/1")).toBe(
+      "LinkedIn",
+    );
+    expect(
+      sourceFromOfferUrl("https://welcometothejungle.com/fr/companies/x/jobs/y"),
+    ).toBe("Welcome to the Jungle");
+    expect(sourceFromOfferUrl("https://indeed.com/viewjob?jk=1")).toBe("Indeed");
+  });
+
+  it("accepts subdomains of a known board", () => {
+    expect(sourceFromOfferUrl("https://www.linkedin.com/jobs/view/1")).toBe(
+      "LinkedIn",
+    );
+    expect(sourceFromOfferUrl("https://fr.linkedin.com/jobs/view/1")).toBe(
+      "LinkedIn",
+    );
+    expect(
+      sourceFromOfferUrl("https://www.welcometothejungle.com/fr/jobs/x"),
+    ).toBe("Welcome to the Jungle");
+    expect(sourceFromOfferUrl("https://fr.indeed.com/viewjob?jk=1")).toBe(
+      "Indeed",
+    );
+  });
+
+  it("follows Indeed across its country extensions", () => {
+    expect(sourceFromOfferUrl("https://indeed.fr/viewjob?jk=1")).toBe("Indeed");
+    expect(sourceFromOfferUrl("https://www.indeed.co.uk/viewjob")).toBe(
+      "Indeed",
+    );
+    expect(sourceFromOfferUrl("https://indeed.com.mx/viewjob")).toBe("Indeed");
+  });
+
+  it("is case-insensitive on the host, like the DNS is", () => {
+    expect(sourceFromOfferUrl("https://WWW.LinkedIn.COM/jobs/view/1")).toBe(
+      "LinkedIn",
+    );
+  });
+
+  it("refuses a lookalike domain that only contains the board name", () => {
+    // The whole point of matching on label boundaries: none of these is the
+    // real job board, and none of them may borrow its name.
+    expect(sourceFromOfferUrl("https://evil-linkedin.com/jobs")).toBeUndefined();
+    expect(sourceFromOfferUrl("https://linkedin.com.evil.net/jobs")).toBeUndefined();
+    expect(sourceFromOfferUrl("https://mylinkedin.com/jobs")).toBeUndefined();
+    expect(sourceFromOfferUrl("https://linkedincorp.com/jobs")).toBeUndefined();
+    expect(
+      sourceFromOfferUrl("https://notwelcometothejungle.com/jobs"),
+    ).toBeUndefined();
+    expect(sourceFromOfferUrl("https://evil-indeed.com/viewjob")).toBeUndefined();
+    expect(sourceFromOfferUrl("https://indeedjobs.com/viewjob")).toBeUndefined();
+    // `evil` is no plausible public suffix, so this is not an Indeed domain.
+    expect(sourceFromOfferUrl("https://indeed.evil.com/viewjob")).toBeUndefined();
+    expect(sourceFromOfferUrl("https://indeed.com.evil.net/viewjob")).toBeUndefined();
+  });
+
+  it("leaves an unknown board unnamed rather than guessing", () => {
+    expect(sourceFromOfferUrl("https://jobs.example.com/42")).toBeUndefined();
+    expect(sourceFromOfferUrl("https://careers.acme.fr/offre/1")).toBeUndefined();
+    expect(sourceFromOfferUrl("pas-une-url")).toBeUndefined();
+  });
+});
+
+describe("detectOfferUrlOnly", () => {
+  it("recognises a lone offer link and its board", () => {
+    expect(
+      detectOfferUrlOnly("https://www.linkedin.com/jobs/view/4451103812/"),
+    ).toEqual({
+      url: "https://www.linkedin.com/jobs/view/4451103812/",
+      source: "LinkedIn",
+    });
+  });
+
+  it("ignores the whitespace around a pasted link", () => {
+    expect(detectOfferUrlOnly("\n  https://indeed.fr/viewjob?jk=1  \n")).toEqual(
+      { url: "https://indeed.fr/viewjob?jk=1", source: "Indeed" },
+    );
+  });
+
+  it("returns the url alone for an unknown domain", () => {
+    expect(detectOfferUrlOnly("https://jobs.example.com/42")).toEqual({
+      url: "https://jobs.example.com/42",
+    });
+  });
+
+  it("does not claim a paste that contains anything besides the link", () => {
+    expect(
+      detectOfferUrlOnly("Voir l'offre https://www.linkedin.com/jobs/view/1"),
+    ).toBeNull();
+    expect(
+      detectOfferUrlOnly("https://www.linkedin.com/jobs/view/1 CDI Paris"),
+    ).toBeNull();
+    expect(
+      detectOfferUrlOnly(
+        "Développeur React\nhttps://www.linkedin.com/jobs/view/1",
+      ),
+    ).toBeNull();
+  });
+
+  it("does not claim anything that is not a safe http(s) url", () => {
+    expect(detectOfferUrlOnly("")).toBeNull();
+    expect(detectOfferUrlOnly("   ")).toBeNull();
+    // A scheme is required: a bare domain is too ambiguous to act on.
+    expect(detectOfferUrlOnly("www.linkedin.com/jobs/view/1")).toBeNull();
+    expect(detectOfferUrlOnly("javascript:alert(1)")).toBeNull();
+    expect(detectOfferUrlOnly("ftp://example.com/offre")).toBeNull();
+    expect(
+      detectOfferUrlOnly("https://user:pass@www.linkedin.com/jobs/view/1"),
+    ).toBeNull();
+  });
+});
+
+describe("offerUrlPrefillFields", () => {
+  it("proposes the url and the source when the board is known", () => {
+    expect(
+      offerUrlPrefillFields({ url: "https://x.test/1", source: "LinkedIn" }),
+    ).toEqual({ offerUrl: "https://x.test/1", source: "LinkedIn" });
+  });
+
+  it("proposes the url alone otherwise, never an empty source", () => {
+    expect(offerUrlPrefillFields({ url: "https://x.test/1" })).toEqual({
+      offerUrl: "https://x.test/1",
+    });
+  });
+
+  it("goes through the merge without ever overwriting a manual value", () => {
+    const current = { ...emptyForm, source: "Cooptation" };
+    const fields = offerUrlPrefillFields({
+      url: "https://www.linkedin.com/jobs/view/1",
+      source: "LinkedIn",
+    });
+
+    const { values, filledFields, keptFields } = mergeOfferPrefill(
+      current,
+      fields,
+    );
+
+    expect(values.source).toBe("Cooptation");
+    expect(values.offerUrl).toBe("https://www.linkedin.com/jobs/view/1");
+    expect(filledFields).toEqual(["offerUrl"]);
+    expect(keptFields).toEqual(["source"]);
+  });
+});
+
+describe("buildUrlPrefillSummary", () => {
+  it("never says nothing was prefilled when the link was understood", () => {
+    const summary = buildUrlPrefillSummary({
+      filledFields: ["source", "offerUrl"],
+      keptFields: [],
+      sourceDetected: true,
+    });
+
+    expect(summary).toContain("Lien de l'offre reconnu");
+    expect(summary).toContain("2 champs préremplis");
+    expect(summary).toContain("Source");
+    expect(summary).toContain("Lien de l'offre");
+    expect(summary).not.toContain("aucun champ");
+  });
+
+  it("says the source could not be deduced from an unknown domain", () => {
+    const summary = buildUrlPrefillSummary({
+      filledFields: ["offerUrl"],
+      keptFields: [],
+      sourceDetected: false,
+    });
+
+    expect(summary).toContain("1 champ prérempli");
+    expect(summary).toContain("La source n'a pas pu être déduite");
+  });
+
+  it("reports the values it kept instead of overwriting", () => {
+    const summary = buildUrlPrefillSummary({
+      filledFields: [],
+      keptFields: ["offerUrl", "source"],
+      sourceDetected: true,
+    });
+
+    expect(summary).toContain("rien de nouveau à préremplir");
+    expect(summary).toContain("Vos saisies ont été conservées");
+    expect(summary).not.toContain("La source n'a pas pu être déduite");
+  });
+
+  it("always points to the way of filling the remaining fields", () => {
+    const summary = buildUrlPrefillSummary({
+      filledFields: ["offerUrl"],
+      keptFields: [],
+      sourceDetected: true,
+    });
+
+    expect(summary).toContain("Collez le texte complet de l'annonce");
   });
 });
 

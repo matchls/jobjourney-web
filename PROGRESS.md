@@ -81,6 +81,20 @@
   - Condition d'affichage de la section « Informations » étendue à ces deux champs — sans ça, une candidature n'ayant que des notes gardait la section masquée
   - Premiers tests de rendu de la fiche (`page.test.tsx`) : hooks de données et sections entretiens/préparation mockés, `use(params)` résolu via un `act` awaité
 
+- Lien et source préremplis depuis une URL d'offre collée (issue #29, frontend uniquement — remontée par le smoke test de `jobjourney-api#18`) :
+  - Problème : coller uniquement `https://www.linkedin.com/jobs/view/...` dans le panneau d'import envoyait l'URL comme `offerText` à Groq, qui ne pouvait rien en tirer (aucun scraping) — l'UI annonçait « aucun champ prérempli » alors que le lien **et** la plateforme sont déterministes
+  - `job-offer-prefill.ts` étendu (pas de module parallèle) : `detectOfferUrlOnly` (le collage est-il *uniquement* une URL http(s) sûre ?), `sourceFromOfferUrl` (mapping déterministe domaine → source), `offerUrlPrefillFields`, `buildUrlPrefillSummary`
+  - Deux tables de mapping explicites plutôt qu'une abstraction : `SOURCE_BY_DOMAIN` pour les domaines fixes (`linkedin.com` → LinkedIn, `welcometothejungle.com` → Welcome to the Jungle) et `SOURCE_BY_SITE_NAME` pour les sites à extension pays variable (`indeed` → Indeed, qui couvre `indeed.fr`, `indeed.co.uk`, `fr.indeed.com`, `indeed.com.mx`…)
+  - **Comparaison par étiquette DNS, jamais par sous-chaîne** : le host doit être exactement le domaine ou se terminer par `.<domaine>`. C'est ce qui fait que `evil-linkedin.com`, `linkedin.com.evil.net`, `mylinkedin.com` et `indeedjobs.com` ne récupèrent pas le nom de la plateforme. Pour Indeed, ce qui suit l'étiquette `indeed` doit en plus ressembler à un suffixe public (1 ou 2 étiquettes alphabétiques de 2-3 lettres), sinon `indeed.evil.com` passerait
+  - Le schéma `https://` est exigé : c'est ce que produisent la barre d'adresse et les boutons « copier le lien », alors qu'un `linkedin.com` nu au milieu d'un texte serait ambigu. Tout espace/retour ligne dans le collage = c'est un texte → workflow IA inchangé
+  - **Aucun appel Groq sur ce chemin** : le `return` anticipé est placé après les validations (vide / trop long) mais avant la pose du verrou `parsingRef` et de la génération de session — le chemin URL est purement synchrone, aucun `fetch` n'est émis
+  - Le préremplissage passe par le `mergeOfferPrefill` existant : la garantie « une saisie manuelle n'est jamais écrasée » est héritée telle quelle (et ne peut pas diverger plus tard), et `keptFields` sert directement à dire à l'utilisateur ce qui a été conservé
+  - Message dédié (`buildUrlPrefillSummary`) : « Lien de l'offre reconnu : N champs préremplis… », mention explicite quand la source n'a pas pu être déduite d'un domaine inconnu, et rappel de coller le texte complet pour le reste. Le « aucun champ vide n'a pu être prérempli » de l'IA ne peut plus apparaître pour une URL valide
+  - Aucune métadonnée d'extraction sur ce chemin (rien n'a été interprété, donc rien à signaler « À vérifier ») ; celles d'une analyse précédente sont réinitialisées
+  - Texte d'aide et placeholder du panneau adaptés pour rendre le comportement découvrable avant l'essai
+  - Aucun scraping, aucune requête réseau supplémentaire, aucun changement backend
+  - 21 tests ajoutés (104 au total) : LinkedIn/WTTJ/Indeed, sous-domaines, extensions pays d'Indeed, casse du host, domaines sosies, domaine inconnu, collage mixte texte+lien, schéma manquant, `javascript:`/`ftp:`/`user:pass@`, valeurs manuelles préservées, création finale, non-régression du workflow texte complet, marqueurs d'une analyse précédente effacés, fermeture/réouverture sans état résiduel
+
 ## ⏭️ Plan V1 — Fonctionnalités manquantes
 
 ### 1. Bouton "+" Kanban (30 min)

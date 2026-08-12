@@ -830,6 +830,234 @@ describe("NewApplicationDialog — reviewing the extracted fields", () => {
   });
 });
 
+describe("NewApplicationDialog — pasting only the offer link", () => {
+  const LINKEDIN_URL = "https://www.linkedin.com/jobs/view/4451103812/";
+
+  // Pastes `text` in the import panel and clicks "Traiter l'offre".
+  async function importPastedText(text: string) {
+    const { user } = renderDialog();
+    await openDialog(user);
+    await user.type(await openImportPanel(user), text);
+    await user.click(processButton());
+    return { user };
+  }
+
+  it("fills the link and its source without calling the extraction", async () => {
+    await importPastedText(LINKEDIN_URL);
+
+    await waitFor(() => expect(field(/^Lien offre/)).toHaveValue(LINKEDIN_URL));
+
+    expect(field(/^Source/)).toHaveValue("LinkedIn");
+    // The whole point: a link carries nothing an AI could read, so no request
+    // is made at all.
+    expect(callsTo(PARSE_OFFER_URL)).toHaveLength(0);
+
+    // Back on the standard form, ready for the fields only a human can give.
+    expect(screen.queryByLabelText(/Texte de l'offre/)).not.toBeInTheDocument();
+    expect(field("Entreprise *")).toHaveFocus();
+
+    // Nothing was interpreted, so nothing is flagged as uncertain.
+    expect(screen.queryByText("À vérifier")).not.toBeInTheDocument();
+    expect(screen.queryByText(WARNINGS_PANEL)).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("never tells the user nothing could be prefilled", async () => {
+    await importPastedText(LINKEDIN_URL);
+
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent(
+        /Lien de l'offre reconnu/,
+      ),
+    );
+
+    const status = screen.getByRole("status");
+    expect(status).toHaveTextContent(/2 champs préremplis/);
+    expect(status).not.toHaveTextContent(/aucun champ/);
+    expect(status).toHaveTextContent(/Collez le texte complet de l'annonce/);
+  });
+
+  it("maps Welcome to the Jungle from its own domain", async () => {
+    await importPastedText(
+      "https://www.welcometothejungle.com/fr/companies/acme/jobs/dev-react",
+    );
+
+    await waitFor(() =>
+      expect(field(/^Source/)).toHaveValue("Welcome to the Jungle"),
+    );
+    expect(callsTo(PARSE_OFFER_URL)).toHaveLength(0);
+  });
+
+  it("maps Indeed across its country extensions", async () => {
+    await importPastedText("https://fr.indeed.com/viewjob?jk=abc123");
+
+    await waitFor(() => expect(field(/^Source/)).toHaveValue("Indeed"));
+    expect(field(/^Lien offre/)).toHaveValue(
+      "https://fr.indeed.com/viewjob?jk=abc123",
+    );
+  });
+
+  it("fills the link only for an unknown domain, and says so", async () => {
+    await importPastedText("https://careers.acme.example/offre/42");
+
+    await waitFor(() =>
+      expect(field(/^Lien offre/)).toHaveValue(
+        "https://careers.acme.example/offre/42",
+      ),
+    );
+
+    expect(field(/^Source/)).toHaveValue("");
+    expect(screen.getByRole("status")).toHaveTextContent(
+      /La source n'a pas pu être déduite/,
+    );
+    expect(callsTo(PARSE_OFFER_URL)).toHaveLength(0);
+  });
+
+  it("refuses a lookalike domain instead of naming the wrong board", async () => {
+    await importPastedText("https://evil-linkedin.com/jobs/view/1");
+
+    await waitFor(() =>
+      expect(field(/^Lien offre/)).toHaveValue(
+        "https://evil-linkedin.com/jobs/view/1",
+      ),
+    );
+
+    expect(field(/^Source/)).toHaveValue("");
+    expect(screen.getByRole("status")).toHaveTextContent(
+      /La source n'a pas pu être déduite/,
+    );
+  });
+
+  it("keeps the link and the source the user typed", async () => {
+    const { user } = renderDialog();
+    await openDialog(user);
+
+    await user.type(field(/^Lien offre/), "https://jobs.example.com/42");
+    await user.type(field(/^Source/), "Cooptation");
+    await user.type(await openImportPanel(user), LINKEDIN_URL);
+    await user.click(processButton());
+
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent(
+        /Lien de l'offre reconnu/,
+      ),
+    );
+
+    expect(field(/^Lien offre/)).toHaveValue("https://jobs.example.com/42");
+    expect(field(/^Source/)).toHaveValue("Cooptation");
+    expect(screen.getByRole("status")).toHaveTextContent(
+      /Vos saisies ont été conservées pour : Source, Lien de l'offre/,
+    );
+    expect(callsTo(PARSE_OFFER_URL)).toHaveLength(0);
+  });
+
+  it("creates the application from the deduced values", async () => {
+    const { user } = await importPastedText(LINKEDIN_URL);
+
+    await waitFor(() => expect(field(/^Source/)).toHaveValue("LinkedIn"));
+
+    await user.type(field("Entreprise *"), "ACME");
+    await user.type(field("Poste *"), "Développeur React");
+    await user.click(submitButton());
+
+    await waitFor(() => expect(callsTo(APPLICATIONS_URL)).toHaveLength(1));
+
+    expect(bodyOf(callsTo(APPLICATIONS_URL)[0])).toMatchObject({
+      company: "ACME",
+      position: "Développeur React",
+      source: "LinkedIn",
+      offerUrl: LINKEDIN_URL,
+    });
+    expect(callsTo(PARSE_OFFER_URL)).toHaveLength(0);
+  });
+
+  it("still runs the AI workflow when the link comes with some text", async () => {
+    parseOfferHandler = async () =>
+      extractionResponse({ company: "ACME", position: "Développeur" });
+
+    await importPastedText(`Développeur React chez ACME. ${LINKEDIN_URL}`);
+
+    await waitFor(() => expect(callsTo(PARSE_OFFER_URL)).toHaveLength(1));
+    expect(bodyOf(callsTo(PARSE_OFFER_URL)[0])).toMatchObject({
+      offerText: `Développeur React chez ACME. ${LINKEDIN_URL}`,
+    });
+    await waitFor(() => expect(field("Entreprise *")).toHaveValue("ACME"));
+  });
+
+  it("leaves the full-text AI workflow untouched", async () => {
+    parseOfferHandler = async () =>
+      extractionResponse({ company: "ACME", location: "Paris" });
+
+    await importPastedText(OFFER_TEXT);
+
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent(/Analyse terminée/),
+    );
+    expect(callsTo(PARSE_OFFER_URL)).toHaveLength(1);
+    expect(field("Entreprise *")).toHaveValue("ACME");
+    expect(field(/^Localisation/)).toHaveValue("Paris");
+  });
+
+  it("still refuses an empty paste before doing anything", async () => {
+    await importPastedText("   ");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /Collez le texte de l'offre/,
+    );
+    expect(callsTo(PARSE_OFFER_URL)).toHaveLength(0);
+    expect(screen.getByRole("status")).toHaveTextContent("");
+  });
+
+  it("clears the markers left by a previous extraction", async () => {
+    parseOfferHandler = async () =>
+      extractionResponse(
+        { salary: "45k" },
+        { uncertainFields: ["salary"], warnings: ["Salaire en fourchette"] },
+      );
+
+    const { user } = await importPastedText(OFFER_TEXT);
+    await waitFor(() => expect(field(/^Rémunération/)).toHaveValue("45k"));
+    expectFlagged(/^Rémunération/);
+
+    // The panel deliberately keeps the previous paste, so the offer text has
+    // to be replaced by the bare link for the second run.
+    await user.click(importButton());
+    const textarea = screen.getByLabelText(/Texte de l'offre/);
+    await user.clear(textarea);
+    await user.type(textarea, LINKEDIN_URL);
+    await user.click(processButton());
+
+    await waitFor(() => expect(field(/^Source/)).toHaveValue("LinkedIn"));
+
+    expect(screen.queryByText("À vérifier")).not.toBeInTheDocument();
+    expect(screen.queryByText(WARNINGS_PANEL)).not.toBeInTheDocument();
+    expect(screen.queryByText("Salaire en fourchette")).not.toBeInTheDocument();
+    expect(callsTo(PARSE_OFFER_URL)).toHaveLength(1);
+  });
+
+  it("keeps no residual state when the dialog is closed and reopened", async () => {
+    const { user } = await importPastedText(LINKEDIN_URL);
+
+    await waitFor(() => expect(field(/^Source/)).toHaveValue("LinkedIn"));
+
+    await user.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+
+    await openDialog(user);
+
+    expect(field(/^Lien offre/)).toHaveValue("");
+    expect(field(/^Source/)).toHaveValue("");
+    expect(screen.getByRole("status")).toHaveTextContent("");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+
+    const textarea = await openImportPanel(user);
+    expect(textarea).toHaveValue("");
+    expect(processButton()).toBeEnabled();
+  });
+});
+
 describe("NewApplicationDialog — frontend privacy", () => {
   it("keeps the offer text in memory only and talks to no provider", async () => {
     parseOfferHandler = async () => extractionResponse({ company: "ACME" });
