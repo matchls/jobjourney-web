@@ -95,6 +95,17 @@
   - Aucun scraping, aucune requête réseau supplémentaire, aucun changement backend
   - 22 tests ajoutés (105 au total) : LinkedIn/WTTJ/Indeed, sous-domaines, extensions pays d'Indeed, casse du host, domaines sosies, domaine inconnu, collage mixte texte+lien, `http://` accepté au même titre que `https://`, schéma manquant refusé, `javascript:`/`ftp:`/`user:pass@`, valeurs manuelles préservées, création finale, non-régression du workflow texte complet, marqueurs d'une analyse précédente effacés, fermeture/réouverture sans état résiduel
 
+- Description du poste repliable sur la fiche candidature (issue #30, frontend uniquement) :
+  - Problème : la carte « Détails de l'offre » explosait en hauteur dès qu'une annonce importée contenait une description complète, repoussant tout le reste de la fiche. La description est le **seul** champ de longueur libre de cette carte — les autres font une ligne chacun — c'est donc elle qui est repliée
+  - `src/components/application/collapsible-text.tsx` — nouveau composant : bloc borné à `12rem` avec `overflow-hidden`, vrai `<button>` « Voir plus » / « Réduire » portant `aria-expanded` et `aria-controls` (focus clavier, Entrée et Espace natifs)
+  - **Décision de repli mesurée sur le DOM réel** (`scrollHeight > clientHeight`), jamais sur un seuil de caractères : la même description ne s'enroule pas pareil selon la largeur d'écran, la police et le zoom de l'utilisateur — un seuil serait faux dans les trois cas (bouton inutile, ou texte coupé alors qu'il tenait)
+  - **La mesure est court-circuitée quand le bloc est déplié** : sans `max-height`, `scrollHeight === clientHeight`, la mesure conclurait « rien n'est masqué » et supprimerait le bouton « Réduire », piégeant l'utilisateur en état déplié
+  - `useLayoutEffect` (via un sélecteur isomorphe local de 2 lignes, aucune dépendance ajoutée) pour mesurer avant le premier paint : le bouton n'apparaît pas une frame en retard et le bloc ne saute pas. Repli sur `useEffect` en SSR, où il n'y a aucun layout à lire
+  - `ResizeObserver` sur le paragraphe pour re-mesurer au redimensionnement / passage en écran étroit ; absence de l'API gérée (jsdom, vieux navigateurs) — la première mesure couvre le cas courant
+  - `overflow-hidden` et jamais `overflow-auto` : une zone scrollable imbriquée dans une page qui défile déjà capture la molette et est inutilisable au toucher. Dégradé bas (`aria-hidden`, décoratif) pour signaler la coupe là où elle se produit
+  - Donnée intacte : seul l'affichage est borné, le texte complet reste dans le DOM avec son `whitespace-pre-line`. Aucune écriture, aucun appel réseau, aucun changement backend
+  - 9 tests ajoutés (114 au total). jsdom ne calculant aucun layout (`scrollHeight`/`clientHeight` valent 0), `page.test.tsx` stubbe les deux getters avec une simulation minimale (lignes × hauteur de ligne, clampée par le `max-height` inline) — le composant est donc testé sur la comparaison qu'il exécute réellement en navigateur, pas sur un chemin de repli : description courte sans contrôle, longue repliée, clic → déplié, second clic → replié, clavier (Entrée/Espace), texte intégral et retours à la ligne conservés, aucune classe de scroll imbriqué, autres informations de la fiche toujours visibles
+
 ## ⏭️ Plan V1 — Fonctionnalités manquantes
 
 ### 1. Bouton "+" Kanban (30 min)
