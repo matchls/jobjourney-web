@@ -23,9 +23,12 @@ import {
   MAX_OFFER_TEXT_LENGTH,
   OFFER_TEXT_TOO_LONG_MESSAGE,
   buildPrefillSummary,
+  buildUrlPrefillSummary,
+  detectOfferUrlOnly,
   mergeOfferPrefill,
   normalizeExtractionWarnings,
   normalizeUncertainFields,
+  offerUrlPrefillFields,
   parseOfferErrorMessage,
   sanitizeOfferUrl,
 } from "@/lib/job-offer-prefill";
@@ -191,6 +194,34 @@ export function NewApplicationDialog({
     if (trimmed.length > MAX_OFFER_TEXT_LENGTH) {
       setImportError(OFFER_TEXT_TOO_LONG_MESSAGE);
       offerTextRef.current?.focus();
+      return;
+    }
+
+    // Paste that is only an offer link: the link and its job board are pure
+    // deduction, so they are resolved here and the extraction is not called at
+    // all. Nothing else can be read from a URL without scraping it, which this
+    // feature deliberately does not do.
+    const urlOnly = detectOfferUrlOnly(trimmed);
+    if (urlOnly) {
+      const fields = offerUrlPrefillFields(urlOnly);
+      const outcome = mergeOfferPrefill(formRef.current, fields);
+      setForm((current) => mergeOfferPrefill(current, fields).values);
+
+      // Nothing was interpreted, so there is nothing to flag — and any review
+      // metadata left by a previous extraction describes a run that no longer
+      // matches what is on screen.
+      setUncertainFields([]);
+      setReviewedFields([]);
+      setExtractionWarnings([]);
+
+      setImportNotice(
+        buildUrlPrefillSummary({
+          ...outcome,
+          sourceDetected: urlOnly.source !== undefined,
+        }),
+      );
+      setShowImport(false);
+      companyRef.current?.focus();
       return;
     }
 
@@ -362,7 +393,7 @@ export function NewApplicationDialog({
                 className={inputClass}
                 rows={6}
                 aria-describedby="offer-text-hint"
-                placeholder="Collez ici le texte complet de l'annonce..."
+                placeholder="Collez ici le texte complet de l'annonce, ou seulement son lien..."
                 value={offerText}
                 onChange={(e) => setOfferText(e.target.value)}
               />
@@ -371,6 +402,8 @@ export function NewApplicationDialog({
                 formulaire. Aucune candidature n&apos;est créée à cette étape :
                 vous gardez la main sur tous les champs. Le lien et la source
                 déjà saisis dans le formulaire sont transmis comme contexte.
+                Si vous collez uniquement le lien de l&apos;offre, le lien et la
+                source sont déduits directement, sans appel à l&apos;IA.
               </p>
               <Button
                 type="button"

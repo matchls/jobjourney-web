@@ -117,6 +117,105 @@ export function sanitizeOfferUrl(value: string | undefined): string | undefined 
   return trimmed;
 }
 
+// --- Deterministic prefill from a pasted offer URL (issue #29) -------------
+
+// Job boards whose domain is stable. The value is matched on a label
+// boundary, never with a substring test: `evil-linkedin.com` and
+// `linkedin.com.attaquant.net` must not resolve to LinkedIn.
+const SOURCE_BY_DOMAIN: Record<string, string> = {
+  "linkedin.com": "LinkedIn",
+  "welcometothejungle.com": "Welcome to the Jungle",
+};
+
+// Job boards published under many country TLDs (indeed.fr, indeed.co.uk,
+// fr.indeed.com...). Listing every extension would be an endless, always
+// incomplete list, so the site name is matched instead — but only when what
+// follows it really looks like a public suffix.
+const SOURCE_BY_SITE_NAME: Record<string, string> = {
+  indeed: "Indeed",
+};
+
+// A public suffix is one or two short alphabetic labels ("com", "co.uk").
+// This is what stops `indeed.attaquant.net` from being read as Indeed: the
+// label right after `indeed` has to be a plausible TLD, not a domain name.
+const MAX_PUBLIC_SUFFIX_LABELS = 2;
+
+function isPublicSuffixLabel(label: string): boolean {
+  return /^[a-z]{2,3}$/.test(label);
+}
+
+// Source deduced from the offer domain, or undefined when the board is not in
+// the tables above. Deduction only: nothing is guessed, nothing is fetched.
+export function sourceFromOfferUrl(value: string): string | undefined {
+  let hostname: string;
+  try {
+    // `URL` lowercases the host and punycodes IDNs, so the comparisons below
+    // work on a normalised value.
+    hostname = new URL(value).hostname;
+  } catch {
+    return undefined;
+  }
+
+  for (const [domain, source] of Object.entries(SOURCE_BY_DOMAIN)) {
+    if (hostname === domain || hostname.endsWith(`.${domain}`)) return source;
+  }
+
+  const labels = hostname.split(".");
+  for (const [siteName, source] of Object.entries(SOURCE_BY_SITE_NAME)) {
+    // Last occurrence: in `indeed.example.indeed.com` the meaningful one is
+    // the registrable domain, not the subdomain an attacker controls.
+    const index = labels.lastIndexOf(siteName);
+    if (index === -1) continue;
+
+    const suffix = labels.slice(index + 1);
+    if (suffix.length === 0 || suffix.length > MAX_PUBLIC_SUFFIX_LABELS) {
+      continue;
+    }
+    if (suffix.every(isPublicSuffixLabel)) return source;
+  }
+
+  return undefined;
+}
+
+export type OfferUrlDetection = {
+  /** The pasted URL, validated and trimmed. */
+  url: string;
+  /** Known job board behind the domain, when there is one. */
+  source?: string;
+};
+
+// Recognises a paste that is *only* an offer link. A link carries no company,
+// no position and no description, so there is nothing for the extraction to
+// read: handling it here saves a pointless AI call and gives an instant,
+// reproducible result instead of a probabilistic one.
+//
+// An explicit `http://` or `https://` scheme is required on purpose: it is
+// what a browser address bar and a "copy link" button produce, while a bare
+// `linkedin.com` sitting in a sentence would be ambiguous. Any whitespace
+// means the paste is a text — even a very short one — and belongs to the AI
+// workflow.
+export function detectOfferUrlOnly(text: string): OfferUrlDetection | null {
+  const trimmed = text.trim();
+  if (trimmed === "" || /\s/.test(trimmed)) return null;
+
+  const url = sanitizeOfferUrl(trimmed);
+  if (!url) return null;
+
+  const source = sourceFromOfferUrl(url);
+  return source ? { url, source } : { url };
+}
+
+// Fields a recognised URL can fill, ready for `mergeOfferPrefill`. Going
+// through the same merge as the extraction is what guarantees a value typed by
+// the user is never overwritten, here too.
+export function offerUrlPrefillFields(
+  detection: OfferUrlDetection,
+): ExtractedJobOfferFields {
+  return detection.source
+    ? { offerUrl: detection.url, source: detection.source }
+    : { offerUrl: detection.url };
+}
+
 function isBlank(value: unknown): boolean {
   return typeof value !== "string" || value.trim() === "";
 }
@@ -241,6 +340,50 @@ export function buildPrefillSummary({
   }
 
   parts.push("Vérifiez et corrigez les champs avant de créer la candidature.");
+
+  return parts.join(" ");
+}
+
+// Recap of the URL-only path. It says three things the AI recap cannot: the
+// link *was* understood (so "aucun champ prérempli" never shows up for a
+// perfectly valid paste), whether the board could be named, and what the user
+// can do next to fill the rest.
+export function buildUrlPrefillSummary({
+  filledFields,
+  keptFields,
+  sourceDetected,
+}: Pick<OfferPrefillOutcome<never>, "filledFields" | "keptFields"> & {
+  sourceDetected: boolean;
+}): string {
+  const parts: string[] = [];
+
+  if (filledFields.length === 0) {
+    parts.push("Lien de l'offre reconnu : il n'y avait rien de nouveau à préremplir.");
+  } else {
+    parts.push(
+      `Lien de l'offre reconnu : ${filledFields.length} champ${
+        filledFields.length > 1 ? "s" : ""
+      } prérempli${filledFields.length > 1 ? "s" : ""} (${filledFields
+        .map(fieldLabel)
+        .join(", ")}).`,
+    );
+  }
+
+  if (keptFields.length > 0) {
+    parts.push(
+      `Vos saisies ont été conservées pour : ${keptFields
+        .map(fieldLabel)
+        .join(", ")}.`,
+    );
+  }
+
+  if (!sourceDetected) {
+    parts.push("La source n'a pas pu être déduite de ce domaine.");
+  }
+
+  parts.push(
+    "Collez le texte complet de l'annonce pour préremplir les autres champs.",
+  );
 
   return parts.join(" ");
 }
