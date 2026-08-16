@@ -9,12 +9,22 @@ export function apiUrl(path: string): string {
 export class ApiError extends Error {
   status: number;
   code?: string;
+  // Per-field validation details, kept as sent by the API. `message` only ever
+  // carries the first one (flattened for display); callers that need to know
+  // *which* field the server rejected read this instead of parsing the string.
+  fieldErrors?: Record<string, string[]>;
 
-  constructor(message: string, status: number, code?: string) {
+  constructor(
+    message: string,
+    status: number,
+    code?: string,
+    fieldErrors?: Record<string, string[]>,
+  ) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.code = code;
+    this.fieldErrors = fieldErrors;
   }
 }
 
@@ -45,7 +55,16 @@ async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
     const code: string | undefined =
       typeof body?.error?.code === "string" ? body.error.code : body?.code;
 
-    throw new ApiError(message, res.status, code);
+    // Carried alongside the flattened message so a caller can react to the
+    // field the server named. Kept independent of the message branches above:
+    // a body with both `message` and `fieldErrors` still exposes both.
+    const rawFieldErrors = body?.error?.fieldErrors;
+    const fieldErrors: Record<string, string[]> | undefined =
+      rawFieldErrors && typeof rawFieldErrors === "object"
+        ? (rawFieldErrors as Record<string, string[]>)
+        : undefined;
+
+    throw new ApiError(message, res.status, code, fieldErrors);
   }
   if (res.status === 204) return null as T;
   return res.json();

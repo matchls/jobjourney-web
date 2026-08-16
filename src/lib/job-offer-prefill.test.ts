@@ -10,6 +10,7 @@ import {
   normalizeExtractionWarnings,
   normalizeUncertainFields,
   offerUrlPrefillFields,
+  isOfferLengthError,
   parseOfferErrorMessage,
   sanitizeOfferUrl,
   sourceFromOfferUrl,
@@ -279,6 +280,111 @@ describe("parseOfferErrorMessage", () => {
   });
 });
 
+// --- Server-side length refusals (issue #28) --------------------------------
+//
+// The local MAX_OFFER_TEXT_LENGTH guard can sit above the API's real limit
+// without anything warning us. When that happens the API refuses the offer,
+// and the user must still read "too long" rather than a vague "invalid offer".
+
+const validationError = (fieldErrors: Record<string, string[]>) =>
+  new ApiError("offerText : ...", 400, "validation_error", fieldErrors);
+
+describe("isOfferLengthError", () => {
+  it("recognizes the route's own body limit", () => {
+    expect(isOfferLengthError(new ApiError("raw", 413, "payload_too_large"))).toBe(
+      true,
+    );
+  });
+
+  it("recognizes a 413 that carries no code", () => {
+    expect(isOfferLengthError(new ApiError("raw", 413))).toBe(true);
+  });
+
+  it("recognizes the code even under another status", () => {
+    expect(isOfferLengthError(new ApiError("raw", 400, "payload_too_large"))).toBe(
+      true,
+    );
+  });
+
+  it("recognizes a validation_error naming offerText", () => {
+    expect(
+      isOfferLengthError(validationError({ offerText: ["Too big"] })),
+    ).toBe(true);
+  });
+
+  it("does not depend on the validator's wording", () => {
+    // Zod 3, Zod 4 and a translated backend phrase all read the same to us,
+    // because detection looks at the field name, never at the sentence.
+    for (const wording of [
+      "String must contain at most 20000 character(s)",
+      "Too big: expected string to have <=10000 characters",
+      "Le texte est trop long",
+      "",
+    ]) {
+      expect(
+        isOfferLengthError(validationError({ offerText: [wording] })),
+      ).toBe(true);
+    }
+  });
+
+  it("ignores a validation_error about another field", () => {
+    expect(
+      isOfferLengthError(validationError({ offerUrl: ["Invalid url"] })),
+    ).toBe(false);
+    expect(
+      isOfferLengthError(validationError({ sourceHint: ["Too big"] })),
+    ).toBe(false);
+  });
+
+  it("ignores a validation_error with no usable field details", () => {
+    expect(isOfferLengthError(validationError({}))).toBe(false);
+    expect(isOfferLengthError(validationError({ offerText: [] }))).toBe(false);
+    expect(
+      isOfferLengthError(new ApiError("raw", 400, "validation_error")),
+    ).toBe(false);
+  });
+
+  it("ignores every other failure", () => {
+    expect(isOfferLengthError(new ApiError("raw", 429, "rate_limited"))).toBe(
+      false,
+    );
+    expect(
+      isOfferLengthError(new ApiError("raw", 502, "extraction_unavailable")),
+    ).toBe(false);
+    expect(isOfferLengthError(new TypeError("Failed to fetch"))).toBe(false);
+    expect(isOfferLengthError(null)).toBe(false);
+  });
+});
+
+describe("parseOfferErrorMessage — server-side length refusals", () => {
+  it("says the offer is too long when the API refuses its length", () => {
+    expect(
+      parseOfferErrorMessage(validationError({ offerText: ["Too big"] })),
+    ).toMatch(/trop longue/);
+  });
+
+  it("keeps the generic wording for a validation_error on another field", () => {
+    expect(
+      parseOfferErrorMessage(validationError({ offerUrl: ["Invalid url"] })),
+    ).toMatch(/n'est pas valide/);
+  });
+
+  it("still says too long when the API is stricter than the local guard", () => {
+    // The local guard never fired (the text was under 20 000), yet the server
+    // refused it — the wording follows the server, which is the whole point.
+    const belowLocalGuard = "a".repeat(MAX_OFFER_TEXT_LENGTH - 1);
+    expect(belowLocalGuard.length).toBeLessThan(MAX_OFFER_TEXT_LENGTH);
+
+    expect(
+      parseOfferErrorMessage(
+        validationError({
+          offerText: ["Too big: expected string to have <=10000 characters"],
+        }),
+      ),
+    ).toMatch(/trop longue/);
+  });
+});
+
 describe("sanitizeOfferUrl", () => {
   it("keeps a plain http(s) url", () => {
     expect(sanitizeOfferUrl("https://jobs.example.com/1")).toBe(
@@ -511,7 +617,11 @@ describe("buildUrlPrefillSummary", () => {
 });
 
 describe("contract constants", () => {
-  it("stays aligned with the backend limit", () => {
+  // Freezes the local guard, not a contract: nothing keeps this in sync with
+  // the API's MAX_LONG_TEXT, which is why a server-side length refusal is
+  // handled on its own (see isOfferLengthError). Changing this value is a
+  // deliberate UX call, not a coordination with the backend.
+  it("keeps the local round-trip guard at its documented value", () => {
     expect(MAX_OFFER_TEXT_LENGTH).toBe(20000);
   });
 
