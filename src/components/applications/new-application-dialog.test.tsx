@@ -20,6 +20,7 @@ type FetchCall = [string, RequestInit | undefined];
 // and the assertions can check the exact URL, method and body of each call.
 let fetchMock: ReturnType<typeof vi.fn>;
 let parseOfferHandler: () => Promise<Response>;
+let createApplicationHandler: () => Promise<Response>;
 
 function jsonResponse(body: unknown, status = 200): Response {
   return {
@@ -71,6 +72,7 @@ function bodyOf(call: FetchCall): Record<string, unknown> {
 
 beforeEach(() => {
   parseOfferHandler = async () => extractionResponse({});
+  createApplicationHandler = async () => jsonResponse({ id: "app-1" });
 
   fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
     if (url === PARSE_OFFER_URL) return parseOfferHandler();
@@ -86,7 +88,7 @@ beforeEach(() => {
       });
     }
     if (url === APPLICATIONS_URL && init?.method === "POST") {
-      return jsonResponse({ id: "app-1" });
+      return createApplicationHandler();
     }
     return jsonResponse({ id: "step-1" });
   });
@@ -1088,5 +1090,150 @@ describe("NewApplicationDialog — frontend privacy", () => {
 
     expect(window.localStorage.length).toBe(0);
     expect(window.sessionStorage.length).toBe(0);
+  });
+});
+
+// --- Duplicate application (issue #34) --------------------------------------
+//
+// The API refuses a duplicate on POST /applications with 409 +
+// { error: { code: "application_duplicate" } } (jobjourney-api#21). Only that
+// exact pair gets the dedicated wording; every other failure keeps the
+// message it already showed.
+
+const DUPLICATE_MESSAGE =
+  "Cette candidature existe déjà. Vérifie tes candidatures avant d’en créer une nouvelle.";
+
+const duplicateResponse = () =>
+  jsonResponse({ error: { code: "application_duplicate" } }, 409);
+
+async function fillMinimalForm(user: ReturnType<typeof userEvent.setup>) {
+  await user.type(field("Entreprise *"), "ACME");
+  await user.type(field("Poste *"), "Développeur React");
+}
+
+describe("NewApplicationDialog — duplicate application", () => {
+  it("shows the dedicated message on a 409 application_duplicate", async () => {
+    createApplicationHandler = async () => duplicateResponse();
+
+    const { user } = renderDialog();
+    await openDialog(user);
+    await fillMinimalForm(user);
+    await user.click(submitButton());
+
+    expect(await screen.findByText(DUPLICATE_MESSAGE)).toBeInTheDocument();
+  });
+
+  it("keeps the dialog open and every typed field untouched", async () => {
+    createApplicationHandler = async () => duplicateResponse();
+
+    const { user } = renderDialog();
+    await openDialog(user);
+
+    await user.type(field("Entreprise *"), "ACME");
+    await user.type(field("Poste *"), "Développeur React");
+    await user.type(field(/^Localisation/), "Paris");
+    await user.type(field(/^Rémunération/), "45k€");
+    await user.type(field(/^Notes/), "Contact via Marie");
+    await user.click(submitButton());
+
+    await screen.findByText(DUPLICATE_MESSAGE);
+
+    // The dialog must not close on this error...
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    // ...and nothing the user typed may be lost, so they can correct and retry.
+    expect(field("Entreprise *")).toHaveValue("ACME");
+    expect(field("Poste *")).toHaveValue("Développeur React");
+    expect(field(/^Localisation/)).toHaveValue("Paris");
+    expect(field(/^Rémunération/)).toHaveValue("45k€");
+    expect(field(/^Notes/)).toHaveValue("Contact via Marie");
+  });
+
+  it("lets the user edit and resubmit, and closes once the retry succeeds", async () => {
+    createApplicationHandler = async () => duplicateResponse();
+
+    const { user } = renderDialog();
+    await openDialog(user);
+    await fillMinimalForm(user);
+    await user.click(submitButton());
+    await screen.findByText(DUPLICATE_MESSAGE);
+
+    // A corrected application is no longer a duplicate.
+    createApplicationHandler = async () => jsonResponse({ id: "app-2" });
+    await user.clear(field("Poste *"));
+    await user.type(field("Poste *"), "Développeur Vue");
+    await user.click(submitButton());
+
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+    expect(callsTo(APPLICATIONS_URL)).toHaveLength(2);
+    expect(bodyOf(callsTo(APPLICATIONS_URL)[1])).toMatchObject({
+      position: "Développeur Vue",
+    });
+  });
+
+  it("keeps the existing wording for a non-duplicate error", async () => {
+    createApplicationHandler = async () =>
+      jsonResponse({ message: "Entreprise requise" }, 400);
+
+    const { user } = renderDialog();
+    await openDialog(user);
+    await fillMinimalForm(user);
+    await user.click(submitButton());
+
+    expect(await screen.findByText("Entreprise requise")).toBeInTheDocument();
+    expect(screen.queryByText(DUPLICATE_MESSAGE)).not.toBeInTheDocument();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("keeps the existing wording for another 409 code", async () => {
+    createApplicationHandler = async () =>
+      jsonResponse({ error: { code: "idempotency_conflict" } }, 409);
+
+    const { user } = renderDialog();
+    await openDialog(user);
+    await fillMinimalForm(user);
+    await user.click(submitButton());
+
+    // Falls back to the generic message the API client already produced —
+    // the duplicate wording is reserved for the duplicate code alone.
+    expect(await screen.findByText("Erreur API")).toBeInTheDocument();
+    expect(screen.queryByText(DUPLICATE_MESSAGE)).not.toBeInTheDocument();
+  });
+
+  it("still closes and resets the form on a successful creation", async () => {
+    const { user } = renderDialog();
+    await openDialog(user);
+    await fillMinimalForm(user);
+    await user.click(submitButton());
+
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+    expect(screen.queryByText(DUPLICATE_MESSAGE)).not.toBeInTheDocument();
+
+    // Reopening shows a blank form, not the previous submission.
+    await openDialog(user);
+    expect(field("Entreprise *")).toHaveValue("");
+    expect(field("Poste *")).toHaveValue("");
+  });
+
+  it("applies to the AI-prefilled flow too, since both go through POST /applications", async () => {
+    parseOfferHandler = async () =>
+      extractionResponse({ company: "ACME", position: "Développeur React" });
+    createApplicationHandler = async () => duplicateResponse();
+
+    const { user } = renderDialog();
+    await openDialog(user);
+    const textarea = await openImportPanel(user);
+    await user.type(textarea, OFFER_TEXT);
+    await user.click(processButton());
+
+    await waitFor(() => expect(field("Entreprise *")).toHaveValue("ACME"));
+    await user.click(submitButton());
+
+    expect(await screen.findByText(DUPLICATE_MESSAGE)).toBeInTheDocument();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(field("Entreprise *")).toHaveValue("ACME");
   });
 });
