@@ -1237,3 +1237,120 @@ describe("NewApplicationDialog — duplicate application", () => {
     expect(field("Entreprise *")).toHaveValue("ACME");
   });
 });
+
+// --- Offer length refused by the server (issue #28) -------------------------
+//
+// MAX_OFFER_TEXT_LENGTH is a local round-trip guard, not the source of truth.
+// If the API's own limit is lower, it refuses the offer and that refusal must
+// still read as "too long". These tests go through the real API client, so
+// they also cover the fieldErrors plumbing in src/lib/api.ts.
+
+const TOO_LONG_MESSAGE = /L'offre est trop longue/;
+
+async function pasteOffer(
+  user: ReturnType<typeof userEvent.setup>,
+  text: string,
+) {
+  const textarea = await openImportPanel(user);
+  // fireEvent instead of user.type: these payloads are thousands of
+  // characters, and typing them key by key would take minutes.
+  fireEvent.change(textarea, { target: { value: text } });
+  return textarea;
+}
+
+describe("NewApplicationDialog — offer length refused by the API", () => {
+  it("shows the too-long message on a 413 payload_too_large", async () => {
+    parseOfferHandler = async () =>
+      jsonResponse({ error: { code: "payload_too_large" } }, 413);
+
+    const { user } = renderDialog();
+    await openDialog(user);
+    await pasteOffer(user, OFFER_TEXT);
+    await user.click(processButton());
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(TOO_LONG_MESSAGE);
+  });
+
+  it("shows the too-long message on a validation_error naming offerText", async () => {
+    // The API is stricter than our local guard: the text left the browser
+    // because it was under 20 000, and came back refused on its length.
+    parseOfferHandler = async () =>
+      jsonResponse(
+        {
+          error: {
+            code: "validation_error",
+            fieldErrors: {
+              offerText: ["Too big: expected string to have <=10000 characters"],
+            },
+            formErrors: [],
+          },
+        },
+        400,
+      );
+
+    const { user } = renderDialog();
+    await openDialog(user);
+    await pasteOffer(user, "a".repeat(15000));
+    await user.click(processButton());
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(TOO_LONG_MESSAGE);
+    // The request really was sent — this is a server refusal, not the guard.
+    expect(callsTo(PARSE_OFFER_URL)).toHaveLength(1);
+  });
+
+  it("keeps the generic wording for a validation_error on another field", async () => {
+    parseOfferHandler = async () =>
+      jsonResponse(
+        {
+          error: {
+            code: "validation_error",
+            fieldErrors: { offerUrl: ["Invalid url"] },
+            formErrors: [],
+          },
+        },
+        400,
+      );
+
+    const { user } = renderDialog();
+    await openDialog(user);
+    await pasteOffer(user, OFFER_TEXT);
+    await user.click(processButton());
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(/n'est pas valide/);
+    expect(alert).not.toHaveTextContent(TOO_LONG_MESSAGE);
+  });
+
+  it("still blocks an over-long paste locally, without any network call", async () => {
+    const { user } = renderDialog();
+    await openDialog(user);
+    await pasteOffer(user, "a".repeat(20001));
+    await user.click(processButton());
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(TOO_LONG_MESSAGE);
+    expect(callsTo(PARSE_OFFER_URL)).toHaveLength(0);
+  });
+
+  it("lets a text at exactly the local limit reach the API", async () => {
+    const { user } = renderDialog();
+    await openDialog(user);
+    await pasteOffer(user, "a".repeat(20000));
+    await user.click(processButton());
+
+    await waitFor(() => expect(callsTo(PARSE_OFFER_URL)).toHaveLength(1));
+  });
+
+  it("leaves the other extraction errors untouched", async () => {
+    parseOfferHandler = async () =>
+      jsonResponse({ error: { code: "extraction_unavailable" } }, 502);
+
+    const { user } = renderDialog();
+    await openDialog(user);
+    await pasteOffer(user, OFFER_TEXT);
+    await user.click(processButton());
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(/temporairement indisponible/);
+    expect(alert).not.toHaveTextContent(TOO_LONG_MESSAGE);
+  });
+});

@@ -43,8 +43,11 @@ export type JobOfferExtractionResult = {
   warnings?: string[] | null;
 };
 
-// Backend limit for offerText (MAX_LONG_TEXT). Checked client-side too so an
-// obviously oversized paste never leaves the browser.
+// Mirror of the backend limit for offerText (MAX_LONG_TEXT). Nothing keeps
+// the two repositories in sync, so this value is a UX guard only — it saves a
+// pointless round-trip on an obviously oversized paste. It is NOT the source
+// of truth: if the API ever lowers its own limit, the server's refusal is what
+// drives the wording (see isOfferLengthError below, issue #28).
 export const MAX_OFFER_TEXT_LENGTH = 20000;
 
 export const EMPTY_OFFER_TEXT_MESSAGE =
@@ -85,7 +88,44 @@ const ERROR_MESSAGE_BY_STATUS: Record<number, string> = {
   429: "Trop de demandes d'analyse. Réessayez dans quelques minutes.",
 };
 
+// The server is the source of truth on offer length (issue #28). The local
+// MAX_OFFER_TEXT_LENGTH guard can be higher than the API's real limit without
+// anything warning us, in which case an over-long offer is refused by the API
+// rather than by the browser — and must still read as "too long", not as a
+// vague "invalid offer".
+//
+// Three shapes, all coming from the current contract of
+// POST /applications/parse-offer, none of them a change to it:
+//   - 413 / payload_too_large — the route's own body limit, hit before
+//     validation ever runs;
+//   - validation_error naming offerText — a max() the schema enforces.
+//
+// The validation case is detected structurally, on WHICH field the server
+// named, never by matching the validator's English wording ("Too big…",
+// "at most…"). Matching that text would swap the issue's silent coupling for
+// a more brittle one, broken by a Zod upgrade or a locale change.
+//
+// Reading an offerText rejection as a length problem is sound because the
+// local guards already exclude the alternatives: the text is trimmed and
+// refused when empty before any request leaves the browser, and it is always
+// a string. Length is the only cause left.
+export function isOfferLengthError(error: unknown): boolean {
+  if (!(error instanceof ApiError)) return false;
+
+  if (error.status === 413 || error.code === "payload_too_large") return true;
+
+  if (error.code === "validation_error") {
+    return Boolean(error.fieldErrors?.offerText?.length);
+  }
+
+  return false;
+}
+
 export function parseOfferErrorMessage(error: unknown): string {
+  // Checked first so a length refusal keeps its dedicated wording even when
+  // it arrives under a generic code like validation_error.
+  if (isOfferLengthError(error)) return OFFER_TEXT_TOO_LONG_MESSAGE;
+
   if (error instanceof ApiError) {
     if (error.code && ERROR_MESSAGE_BY_CODE[error.code]) {
       return ERROR_MESSAGE_BY_CODE[error.code];
