@@ -9,6 +9,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { createApplicationErrorMessage } from "@/lib/application-errors";
 import { useCreateApplication } from "@/hooks/use-create-application";
 import type { CreateApplicationInput } from "@/hooks/use-create-application";
 import { useCreateInterviewStep } from "@/hooks/use-create-interview-step";
@@ -683,7 +684,9 @@ export function NewApplicationDialog({
             />
           </div>
           {error && (
-            <p className="text-xs text-destructive">{error.message}</p>
+            <p className="text-xs text-destructive">
+              {createApplicationErrorMessage(error)}
+            </p>
           )}
           <Button type="submit" className="w-full" disabled={isPending}>
             {isPending ? "Création..." : "Créer la candidature"}
