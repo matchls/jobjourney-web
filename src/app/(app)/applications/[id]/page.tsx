@@ -14,6 +14,7 @@ import {
   Ban,
 } from "lucide-react";
 import { useApplication } from "@/hooks/use-application";
+import { CollapsibleText } from "@/components/application/collapsible-text";
 import { InterviewSteps } from "@/components/application/interview-steps";
 import { PreparationTasks } from "@/components/application/preparation-tasks";
 import type { ApplicationStatus } from "@/types";
@@ -346,14 +347,14 @@ export default function ApplicationDetailPage({
                   </a>
                 </div>
               )}
+              {/* Seule information de longueur libre de cette carte : c'est
+                  elle qui la faisait déborder sur une annonce complète. */}
               {application.jobDescription && (
                 <div>
                   <p className="text-xs text-muted-foreground">
                     Description du poste
                   </p>
-                  <p className="text-sm text-foreground whitespace-pre-line">
-                    {application.jobDescription}
-                  </p>
+                  <CollapsibleText text={application.jobDescription} />
                 </div>
               )}
             </div>
