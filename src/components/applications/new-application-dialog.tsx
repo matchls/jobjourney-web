@@ -10,6 +10,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { createApplicationErrorMessage } from "@/lib/application-errors";
+import { formatLocalDateForInput } from "@/lib/format-date";
 import { useCreateApplication } from "@/hooks/use-create-application";
 import type { CreateApplicationInput } from "@/hooks/use-create-application";
 import { useCreateInterviewStep } from "@/hooks/use-create-interview-step";
@@ -339,7 +340,17 @@ export function NewApplicationDialog({
       open={open}
       onOpenChange={(isOpen) => {
         setOpen(isOpen);
-        if (!isOpen) {
+        if (isOpen) {
+          // A new session opens on today's date. It is computed here, at the
+          // moment the dialog opens, and not once at mount: a page left open
+          // past midnight would otherwise keep offering yesterday. Only
+          // appliedAt is touched, so a date the user then edits or clears
+          // stands until the dialog closes.
+          setForm((current) => ({
+            ...current,
+            appliedAt: formatLocalDateForInput(new Date()),
+          }));
+        } else {
           setForm({ ...emptyForm, status: defaultStatus ?? "TARGETED" });
           resetImport();
         }

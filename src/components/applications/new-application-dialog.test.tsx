@@ -102,7 +102,7 @@ afterEach(() => {
   window.sessionStorage.clear();
 });
 
-function renderDialog() {
+function renderDialog(props: Parameters<typeof NewApplicationDialog>[0] = {}) {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false },
@@ -114,7 +114,7 @@ function renderDialog() {
     user: userEvent.setup(),
     ...render(
       <QueryClientProvider client={queryClient}>
-        <NewApplicationDialog />
+        <NewApplicationDialog {...props} />
       </QueryClientProvider>,
     ),
   };
@@ -394,7 +394,10 @@ describe("NewApplicationDialog — offer extraction", () => {
 
     await waitFor(() => expect(field("Entreprise *")).toHaveValue("ACME"));
 
-    expect(field(/^Date de candidature/)).toHaveValue("");
+    // The date is the one this dialog session opened on (issue #39); the one
+    // the extraction sent never reaches the field.
+    const sessionDate = field(/^Date de candidature/).value;
+    expect(sessionDate).not.toBe("2026-02-01");
     expect(field(/^Note de recommandation/)).toHaveValue("");
 
     await user.click(submitButton());
@@ -402,7 +405,7 @@ describe("NewApplicationDialog — offer extraction", () => {
 
     const payload = bodyOf(callsTo(APPLICATIONS_URL)[0]);
     expect(payload.status).toBe("TARGETED");
-    expect(payload.appliedAt).toBeUndefined();
+    expect(payload.appliedAt).toBe(new Date(sessionDate).toISOString());
     expect(payload.referralNote).toBeUndefined();
     expect(payload.resumeText).toBeUndefined();
     expect(payload.coverLetterText).toBeUndefined();
@@ -654,7 +657,7 @@ describe("NewApplicationDialog — reviewing the extracted fields", () => {
 
     expectFlagged(/^Entreprise/);
     expect(screen.getAllByText("À vérifier")).toHaveLength(1);
-    expect(field(/^Date de candidature/)).toHaveValue("");
+    expectNotFlagged(/^Date de candidature/);
   });
 
   it("groups the warnings in a non-blocking panel", async () => {
@@ -1352,5 +1355,174 @@ describe("NewApplicationDialog — offer length refused by the API", () => {
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent(/temporairement indisponible/);
     expect(alert).not.toHaveTextContent(TOO_LONG_MESSAGE);
+  });
+});
+
+// --- Default application date (issue #39) ------------------------------------
+//
+// A new dialog session opens on today's date, computed when the dialog opens
+// rather than once at mount, so a page left loaded past midnight still offers
+// the right day. The field stays the user's: what they type or clear stands for
+// as long as that session lasts.
+
+describe("NewApplicationDialog — default application date", () => {
+  // Only `Date` is faked. userEvent drives its interactions on real timers, and
+  // faking those as well would deadlock every click in this block.
+  function freezeAt(date: Date) {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(date);
+  }
+
+  // Both instants are built from local components, so the expected values below
+  // hold in whatever timezone the suite runs in.
+  const TODAY = new Date(2026, 4, 17, 10, 30);
+  const TODAY_VALUE = "2026-05-17";
+  const JUST_AFTER_MIDNIGHT = new Date(2026, 4, 18, 0, 5);
+  const NEXT_DAY_VALUE = "2026-05-18";
+
+  const dateField = () => field(/^Date de candidature/);
+
+  async function closeDialog(user: ReturnType<typeof userEvent.setup>) {
+    await user.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+  }
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("prefills today's local date when the dialog opens", async () => {
+    freezeAt(TODAY);
+    const { user } = renderDialog();
+
+    await openDialog(user);
+
+    expect(dateField()).toHaveValue(TODAY_VALUE);
+  });
+
+  it("recomputes the date on reopening instead of freezing it at mount", async () => {
+    freezeAt(TODAY);
+    const { user } = renderDialog();
+
+    await openDialog(user);
+    expect(dateField()).toHaveValue(TODAY_VALUE);
+    await closeDialog(user);
+
+    // The page stayed loaded while the day changed.
+    vi.setSystemTime(JUST_AFTER_MIDNIGHT);
+    await openDialog(user);
+
+    expect(dateField()).toHaveValue(NEXT_DAY_VALUE);
+  });
+
+  it("never overwrites a date the user edited while the dialog stays open", async () => {
+    freezeAt(TODAY);
+    const { user } = renderDialog();
+    await openDialog(user);
+
+    fireEvent.change(dateField(), { target: { value: "2026-03-02" } });
+    expect(dateField()).toHaveValue("2026-03-02");
+
+    // Midnight passes and the user keeps filling the form: their date stands.
+    vi.setSystemTime(JUST_AFTER_MIDNIGHT);
+    await user.type(field("Entreprise *"), "ACME");
+
+    expect(dateField()).toHaveValue("2026-03-02");
+  });
+
+  it("leaves the field empty when the user clears it", async () => {
+    freezeAt(TODAY);
+    const { user } = renderDialog();
+    await openDialog(user);
+
+    fireEvent.change(dateField(), { target: { value: "" } });
+    await user.type(field("Entreprise *"), "ACME");
+    await user.type(field("Poste *"), "Développeur React");
+
+    expect(dateField()).toHaveValue("");
+
+    await user.click(submitButton());
+    await waitFor(() => expect(callsTo(APPLICATIONS_URL)).toHaveLength(1));
+
+    // An emptied field still means "no date" for the API.
+    expect(bodyOf(callsTo(APPLICATIONS_URL)[0]).appliedAt).toBeUndefined();
+  });
+
+  it("opens the next session on the new current date after a creation", async () => {
+    freezeAt(TODAY);
+    const { user } = renderDialog();
+    await openDialog(user);
+
+    await user.type(field("Entreprise *"), "ACME");
+    await user.type(field("Poste *"), "Développeur React");
+    await user.click(submitButton());
+
+    await waitFor(() => expect(callsTo(APPLICATIONS_URL)).toHaveLength(1));
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+
+    vi.setSystemTime(JUST_AFTER_MIDNIGHT);
+    await openDialog(user);
+
+    expect(dateField()).toHaveValue(NEXT_DAY_VALUE);
+    expect(field("Entreprise *")).toHaveValue("");
+  });
+
+  it("sends the date the user selected through the existing contract", async () => {
+    freezeAt(TODAY);
+    const { user } = renderDialog();
+    await openDialog(user);
+
+    await user.type(field("Entreprise *"), "ACME");
+    await user.type(field("Poste *"), "Développeur React");
+    fireEvent.change(dateField(), { target: { value: "2026-03-02" } });
+    await user.click(submitButton());
+
+    await waitFor(() => expect(callsTo(APPLICATIONS_URL)).toHaveLength(1));
+
+    expect(bodyOf(callsTo(APPLICATIONS_URL)[0]).appliedAt).toBe(
+      "2026-03-02T00:00:00.000Z",
+    );
+  });
+
+  it("sends the prefilled date untouched when the user validates it as is", async () => {
+    freezeAt(TODAY);
+    const { user } = renderDialog();
+    await openDialog(user);
+
+    await user.type(field("Entreprise *"), "ACME");
+    await user.type(field("Poste *"), "Développeur React");
+    await user.click(submitButton());
+
+    await waitFor(() => expect(callsTo(APPLICATIONS_URL)).toHaveLength(1));
+
+    expect(bodyOf(callsTo(APPLICATIONS_URL)[0]).appliedAt).toBe(
+      new Date(TODAY_VALUE).toISOString(),
+    );
+  });
+
+  it("leaves the defaultStatus behaviour untouched", async () => {
+    freezeAt(TODAY);
+    const { user } = renderDialog({ defaultStatus: "APPLIED" });
+
+    await openDialog(user);
+    expect(dateField()).toHaveValue(TODAY_VALUE);
+    await closeDialog(user);
+
+    // Closing still resets the form to the configured status, and the next
+    // session still gets its own date.
+    vi.setSystemTime(JUST_AFTER_MIDNIGHT);
+    await openDialog(user);
+    expect(dateField()).toHaveValue(NEXT_DAY_VALUE);
+
+    await user.type(field("Entreprise *"), "ACME");
+    await user.type(field("Poste *"), "Développeur React");
+    await user.click(submitButton());
+
+    await waitFor(() => expect(callsTo(APPLICATIONS_URL)).toHaveLength(1));
+    expect(bodyOf(callsTo(APPLICATIONS_URL)[0]).status).toBe("APPLIED");
   });
 });
