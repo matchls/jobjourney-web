@@ -28,22 +28,28 @@ describe("formatLocalDateForInput", () => {
     );
   });
 
-  it("keeps the local day when UTC has already moved to the next one", () => {
-    process.env.TZ = "Pacific/Kiritimati"; // UTC+14
-    const nightOfTheSixteenth = new Date("2026-01-15T12:00:00.000Z");
+  it("keeps the local day when UTC is still on the previous day", () => {
+    process.env.TZ = "Pacific/Kiritimati"; // UTC+14, local clock ahead of UTC
+    const earlyMorningOfTheSixteenth = new Date("2026-01-15T12:00:00.000Z");
 
-    // Locally it is already the 16th; in UTC it is still the 15th.
-    expect(formatLocalDateForInput(nightOfTheSixteenth)).toBe("2026-01-16");
-    expect(nightOfTheSixteenth.toISOString().slice(0, 10)).toBe("2026-01-15");
+    // Local time is 02:00 on the 16th; UTC has not left the 15th yet.
+    expect(formatLocalDateForInput(earlyMorningOfTheSixteenth)).toBe(
+      "2026-01-16",
+    );
+    expect(earlyMorningOfTheSixteenth.toISOString().slice(0, 10)).toBe(
+      "2026-01-15",
+    );
   });
 
-  it("keeps the local day when UTC has already moved to the previous one", () => {
-    process.env.TZ = "Pacific/Midway"; // UTC-11
-    const morningOfTheFourteenth = new Date("2026-01-15T02:00:00.000Z");
+  it("keeps the local day when UTC has already moved to the next day", () => {
+    process.env.TZ = "Pacific/Midway"; // UTC-11, local clock behind UTC
+    const afternoonOfTheFourteenth = new Date("2026-01-15T02:00:00.000Z");
 
-    // Locally it is still the 14th; in UTC it is already the 15th.
-    expect(formatLocalDateForInput(morningOfTheFourteenth)).toBe("2026-01-14");
-    expect(morningOfTheFourteenth.toISOString().slice(0, 10)).toBe(
+    // Local time is 15:00 on the 14th; UTC has already moved to the 15th.
+    expect(formatLocalDateForInput(afternoonOfTheFourteenth)).toBe(
+      "2026-01-14",
+    );
+    expect(afternoonOfTheFourteenth.toISOString().slice(0, 10)).toBe(
       "2026-01-15",
     );
   });
