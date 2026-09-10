@@ -1,0 +1,62 @@
+# Checks the frontend automatically on every pull request targeting main and on
+# every push to main.
+#
+# Until now lint, build and tests only ran locally, so no status was attached to
+# the commit and a pull request could be merged without them ever being run.
+# This workflow makes those three checks visible on GitHub.
+
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+# Least privilege: the CI only reads the repository. It pushes no commit,
+# creates no release and never modifies a pull request.
+permissions:
+  contents: read
+
+# A new push on a branch cancels the run still in progress for that same
+# branch: there is no point in finishing the checks of a replaced commit.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Lint, build et tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # No `env:` block on purpose. NEXT_PUBLIC_API_URL falls back to
+    # http://localhost:4000 in src/lib/api.ts, so the build does not need it,
+    # and the tests replace `fetch` with a stub instead of calling the API.
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          # Same LTS major version as the development environment.
+          node-version: 22
+          cache: npm
+
+      # npm ci, not npm install: reproducible install, strictly matching
+      # package-lock.json.
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
