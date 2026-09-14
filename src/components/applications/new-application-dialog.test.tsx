@@ -157,7 +157,7 @@ describe("NewApplicationDialog — manual flow", () => {
       company: "ACME",
       position: "Développeur React",
       location: "Paris",
-      status: "TARGETED",
+      status: "APPLIED",
     });
     expect(callsTo(PARSE_OFFER_URL)).toHaveLength(0);
   });
@@ -389,6 +389,9 @@ describe("NewApplicationDialog — offer extraction", () => {
 
     const { user } = renderDialog();
     await openDialog(user);
+    // The user's own choice (issue #49) is TARGETED, so the APPLIED sent by
+    // the extraction would show up in the payload if it leaked through.
+    await user.click(screen.getByRole("checkbox", { name: /Candidature déjà envoyée/ }));
     await user.type(await openImportPanel(user), OFFER_TEXT);
     await user.click(processButton());
 
@@ -1524,5 +1527,183 @@ describe("NewApplicationDialog — default application date", () => {
 
     await waitFor(() => expect(callsTo(APPLICATIONS_URL)).toHaveLength(1));
     expect(bodyOf(callsTo(APPLICATIONS_URL)[0]).status).toBe("APPLIED");
+  });
+});
+
+// --- Initial status choice (issue #49) -----------------------------------------
+//
+// "Candidature déjà envoyée" decides between APPLIED (checked, the default of a
+// standard session) and TARGETED (unchecked). The payload sent to the API must
+// always match what the checkbox shows, and each session starts clean.
+
+describe("NewApplicationDialog — initial status choice", () => {
+  const sentCheckbox = () =>
+    screen.getByRole("checkbox", { name: /Candidature déjà envoyée/ });
+
+  async function closeDialog(user: ReturnType<typeof userEvent.setup>) {
+    await user.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+  }
+
+  async function submitMinimalForm(user: ReturnType<typeof userEvent.setup>) {
+    await user.type(field("Entreprise *"), "ACME");
+    await user.type(field("Poste *"), "Développeur React");
+    await user.click(submitButton());
+    await waitFor(() => expect(callsTo(APPLICATIONS_URL)).toHaveLength(1));
+    return bodyOf(callsTo(APPLICATIONS_URL)[0]);
+  }
+
+  async function importOffer(user: ReturnType<typeof userEvent.setup>) {
+    await user.type(await openImportPanel(user), OFFER_TEXT);
+    await user.click(processButton());
+    await waitFor(() => expect(field("Entreprise *")).toHaveValue("ACME"));
+  }
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("opens checked and creates the application as APPLIED", async () => {
+    const { user } = renderDialog();
+    await openDialog(user);
+
+    expect(sentCheckbox()).toBeChecked();
+    expect(sentCheckbox()).toHaveAccessibleDescription(
+      /Décochez pour l'ajouter à « À cibler »/,
+    );
+
+    expect((await submitMinimalForm(user)).status).toBe("APPLIED");
+  });
+
+  it("creates the application as TARGETED once unchecked", async () => {
+    const { user } = renderDialog();
+    await openDialog(user);
+
+    await user.click(sentCheckbox());
+    expect(sentCheckbox()).not.toBeChecked();
+
+    expect((await submitMinimalForm(user)).status).toBe("TARGETED");
+  });
+
+  it("goes back to APPLIED when the box is checked again", async () => {
+    const { user } = renderDialog();
+    await openDialog(user);
+
+    await user.click(sentCheckbox());
+    await user.click(sentCheckbox());
+    expect(sentCheckbox()).toBeChecked();
+
+    expect((await submitMinimalForm(user)).status).toBe("APPLIED");
+  });
+
+  it("can be toggled from the keyboard through its label", async () => {
+    const { user } = renderDialog();
+    await openDialog(user);
+
+    sentCheckbox().focus();
+    await user.keyboard(" ");
+    expect(sentCheckbox()).not.toBeChecked();
+
+    await user.click(screen.getByText("Candidature déjà envoyée"));
+    expect(sentCheckbox()).toBeChecked();
+  });
+
+  it("comes back checked after closing and reopening the dialog", async () => {
+    const { user } = renderDialog();
+    await openDialog(user);
+    await user.click(sentCheckbox());
+    await closeDialog(user);
+
+    await openDialog(user);
+
+    expect(sentCheckbox()).toBeChecked();
+  });
+
+  it("comes back checked for the session following a successful creation", async () => {
+    const { user } = renderDialog();
+    await openDialog(user);
+    await user.click(sentCheckbox());
+    expect((await submitMinimalForm(user)).status).toBe("TARGETED");
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+
+    await openDialog(user);
+
+    expect(sentCheckbox()).toBeChecked();
+  });
+
+  it("keeps TARGETED through an AI import, even if the extraction sends a status", async () => {
+    parseOfferHandler = async () =>
+      extractionResponse({ company: "ACME", status: "APPLIED" });
+    const { user } = renderDialog();
+    await openDialog(user);
+
+    await user.click(sentCheckbox());
+    await importOffer(user);
+
+    expect(sentCheckbox()).not.toBeChecked();
+    await user.type(field("Poste *"), "Développeur React");
+    await user.click(submitButton());
+    await waitFor(() => expect(callsTo(APPLICATIONS_URL)).toHaveLength(1));
+    expect(bodyOf(callsTo(APPLICATIONS_URL)[0]).status).toBe("TARGETED");
+  });
+
+  it("keeps APPLIED through an AI import, then follows the user's next choice", async () => {
+    parseOfferHandler = async () =>
+      extractionResponse({ company: "ACME", status: "TARGETED" });
+    const { user } = renderDialog();
+    await openDialog(user);
+
+    await importOffer(user);
+    expect(sentCheckbox()).toBeChecked();
+
+    // Unchecking then checking after the import still ends on APPLIED.
+    await user.click(sentCheckbox());
+    await user.click(sentCheckbox());
+    await user.type(field("Poste *"), "Développeur React");
+    await user.click(submitButton());
+    await waitFor(() => expect(callsTo(APPLICATIONS_URL)).toHaveLength(1));
+    expect(bodyOf(callsTo(APPLICATIONS_URL)[0]).status).toBe("APPLIED");
+  });
+
+  it("never touches the prefilled date of the session", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 4, 17, 10, 30));
+    const { user } = renderDialog();
+    await openDialog(user);
+
+    await user.click(sentCheckbox());
+    expect(field(/^Date de candidature/)).toHaveValue("2026-05-17");
+
+    const payload = await submitMinimalForm(user);
+    expect(payload.status).toBe("TARGETED");
+    expect(payload.appliedAt).toBe(new Date("2026-05-17").toISOString());
+  });
+
+  it("starts unchecked and resets to TARGETED when the parent asks for TARGETED", async () => {
+    const { user } = renderDialog({ defaultStatus: "TARGETED" });
+    await openDialog(user);
+    expect(sentCheckbox()).not.toBeChecked();
+
+    await user.click(sentCheckbox());
+    await closeDialog(user);
+    await openDialog(user);
+    expect(sentCheckbox()).not.toBeChecked();
+
+    expect((await submitMinimalForm(user)).status).toBe("TARGETED");
+  });
+
+  it("keeps any other explicit status as is and offers no checkbox for it", async () => {
+    const { user } = renderDialog({ defaultStatus: "INTERVIEWING" });
+    await openDialog(user);
+
+    expect(
+      screen.queryByRole("checkbox", { name: /Candidature déjà envoyée/ }),
+    ).not.toBeInTheDocument();
+
+    expect((await submitMinimalForm(user)).status).toBe("INTERVIEWING");
   });
 });
