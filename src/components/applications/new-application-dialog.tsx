@@ -76,12 +76,20 @@ export function NewApplicationDialog({
   trigger?: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  // A new application has usually been sent already, so a standard session
+  // starts on APPLIED. An explicit defaultStatus (Kanban column) still wins.
+  const effectiveDefaultStatus: ApplicationStatus = defaultStatus ?? "APPLIED";
+  // The checkbox only expresses APPLIED vs TARGETED. A session opened on any
+  // other status (INTERVIEWING, OFFER, REJECTED columns) keeps that status and
+  // shows no checkbox, rather than silently turning it into one of the two.
+  const offersSentChoice =
+    effectiveDefaultStatus === "APPLIED" || effectiveDefaultStatus === "TARGETED";
   const emptyForm: CreateApplicationInput & { appliedAt: string } = {
     company: "",
     position: "",
     source: "",
     offerUrl: "",
-    status: defaultStatus ?? "TARGETED",
+    status: effectiveDefaultStatus,
     appliedAt: "",
     location: "",
     contractType: "",
@@ -327,7 +335,7 @@ export function NewApplicationDialog({
       // close) has to happen here too — otherwise reopening the dialog
       // shows the previous submission's values instead of a blank form.
       setOpen(false);
-      setForm({ ...emptyForm, status: defaultStatus ?? "TARGETED" });
+      setForm({ ...emptyForm, status: effectiveDefaultStatus });
       resetImport();
     } catch {
       // L'erreur de création de candidature est déjà exposée via `error`
@@ -351,7 +359,7 @@ export function NewApplicationDialog({
             appliedAt: formatLocalDateForInput(new Date()),
           }));
         } else {
-          setForm({ ...emptyForm, status: defaultStatus ?? "TARGETED" });
+          setForm({ ...emptyForm, status: effectiveDefaultStatus });
           resetImport();
         }
       }}
@@ -534,6 +542,37 @@ export function NewApplicationDialog({
               onChange={(e) => updateField("offerUrl", e.target.value)}
             />
           </div>
+          {offersSentChoice && (
+            <div className="flex items-start gap-2">
+              <input
+                id="application-already-sent"
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 accent-primary"
+                aria-describedby="application-already-sent-hint"
+                checked={form.status === "APPLIED"}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    status: e.target.checked ? "APPLIED" : "TARGETED",
+                  })
+                }
+              />
+              <div>
+                <label
+                  htmlFor="application-already-sent"
+                  className="text-sm font-medium"
+                >
+                  Candidature déjà envoyée
+                </label>
+                <p
+                  id="application-already-sent-hint"
+                  className="text-xs text-muted-foreground"
+                >
+                  Décochez pour l&apos;ajouter à « À cibler ».
+                </p>
+              </div>
+            </div>
+          )}
           <div className="space-y-1">
             <label
               htmlFor="application-applied-at"
