@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Search,
   ChevronDown,
@@ -196,10 +196,12 @@ function StepProgress({ app }: { app: Application }) {
   );
 }
 
-export default function ApplicationsPage() {
+function ApplicationsList({ initialSearch }: { initialSearch: string }) {
   const { data: applications = [], isLoading, isError, error } =
     useApplications();
-  const [search, setSearch] = useState("");
+  // Seeded from the URL, then edited locally: the term typed here filters on
+  // every keystroke, without pushing a navigation per character.
+  const [search, setSearch] = useState(initialSearch);
   const [statusFilter, setStatusFilter] = useState<ApplicationStatus | "ALL">(
     "ALL",
   );
@@ -251,6 +253,10 @@ export default function ApplicationsPage() {
     setStatusFilter("ALL");
     setSourceFilter("ALL");
     setReviewOnly(false);
+    // Drops `q` too: leaving it would keep a term displayed in the header
+    // that no longer filters anything, and searching that same term again
+    // would leave the query string unchanged, hence have no effect.
+    if (initialSearch) router.replace("/applications");
   }
 
   return (
@@ -609,5 +615,26 @@ export default function ApplicationsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+// A search started from the header only changes the query string, which does
+// not remount the list on its own. Keying it on the applied term does, so a new
+// global search restarts from a clean slate instead of needing an effect to
+// push the term into the running component.
+function ApplicationsRoute() {
+  const searchParams = useSearchParams();
+  const appliedSearch = searchParams.get("q") ?? "";
+
+  return <ApplicationsList key={appliedSearch} initialSearch={appliedSearch} />;
+}
+
+// useSearchParams opts its subtree out of static rendering, so the list sits
+// behind its own boundary, following the pattern already used on the login page.
+export default function ApplicationsPage() {
+  return (
+    <Suspense fallback={null}>
+      <ApplicationsRoute />
+    </Suspense>
   );
 }
