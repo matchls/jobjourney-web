@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { AppSidebar } from "@/components/app-sidebar";
@@ -9,6 +9,7 @@ import { AppHeader } from "@/components/app-header";
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
   const router = useRouter();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -20,10 +21,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-screen bg-background">
-      <AppSidebar />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <AppHeader />
-        <main className="flex-1 overflow-auto p-6">{children}</main>
+      <AppSidebar open={menuOpen} onClose={() => setMenuOpen(false)} />
+      <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+        <AppHeader onMenuClick={() => setMenuOpen(true)} />
+        <main className="flex-1 overflow-auto p-4 md:p-6">{children}</main>
       </div>
     </div>
   );
